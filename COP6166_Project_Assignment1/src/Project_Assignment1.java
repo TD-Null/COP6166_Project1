@@ -28,6 +28,18 @@ class Node<T>
 	}
 }
 
+class PopBackElem<T>
+{
+	boolean check;
+	T val;
+	
+	PopBackElem(boolean check, T val)
+	{
+		this.check = check;
+		this.val = val;
+	}
+}
+
 /*
  * Segmented memory.
  */
@@ -148,6 +160,7 @@ class Vector<T>
 	Contiguous<T> conStorage;
 	int size;
 	boolean segmented_contiguous;
+	int limit = 100;
 	
 	@SuppressWarnings("unchecked")
 	Vector(boolean segmented_contiguous, int capacity)
@@ -167,16 +180,58 @@ class Vector<T>
 		size = 0;
 	}
 	
-	boolean WFpopBack()
+	PopBackElem WFpopBack()
 	{
 		int pos = this.size;
+		
+		for(int failures = 0; failures < limit; failures++)
+		{
+			if(pos == 0)
+			{
+				return new PopBackElem(false, null);
+			}
+			
+			Node<T> spot;
+			
+			if(!segmented_contiguous)
+			{
+				spot = segStorage.getSpot(pos);
+			}
+			
+			else
+			{
+				spot = conStorage.getSpot(pos);
+			}
+		}
 		
 	}
 	
 	
 	T WFpushBack()
 	{
+		int pos = this.size;
 		
+		for(int failures = 0; failures < limit; failures++)
+		{
+			if(pos == 0)
+			{
+				return new PopBackElem(false, null);
+			}
+			
+			Node<T> spot;
+			
+			if(!segmented_contiguous)
+			{
+				spot = segStorage.getSpot(pos);
+			}
+			
+			else
+			{
+				spot = conStorage.getSpot(pos);
+			}
+			
+			
+		}
 	}
 }
 
