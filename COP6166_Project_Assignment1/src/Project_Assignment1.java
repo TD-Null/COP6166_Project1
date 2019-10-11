@@ -669,6 +669,17 @@ public class Project_Assignment1
 	
 	public static void main (String[] args)
     {
+		// Populate the vector with elements.
+		populate(population);
+		
+		// Add a new list of Nodes for the new thread and populate the threads with a list of Nodes.
+		for(int i = 0; i < num_threads; i++)
+		{
+			threadNodes.add(new ArrayList<Node<Integer>>());
+		}
+		
+		populateThreads(num_threads);
+		
 		Thread threads[] = new Thread[num_threads];
 		
 		// Record the start of the execution time prior to spawning the threads.
