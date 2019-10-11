@@ -277,8 +277,8 @@ class Contiguous<T>
 
 /*
  * A wait-free vector class containing an internal storage, being either segmented
- * or contiguous, the current size, and utilizes tail operations, a condition write
- * operation, random access operations, and multi-position operations.
+ * or contiguous, the current size, and utilizes tail operations, random access 
+ * operations, and multi-position operations.
  */
 class Vector<T>
 {
@@ -410,7 +410,7 @@ class Vector<T>
 	/*
 	 * Algorithm 9:
 	 */
-	Node<T> WF_pushBack()
+	Node<T> WF_pushBack(Node<T> value)
 	{
 		int pos = this.size;
 		
@@ -533,16 +533,114 @@ class Vector<T>
 
 class VectorThread extends Thread
 {
+	/*
+	 * Contains an index value to identify each thread. 
+	 * Used for accessing the current threads pre-allocated
+	 * list of Nodes.
+	 */
+	int threadIndex;
+	
+	// Contains the number of operations to use for the current thread.
+	int num_operations;
 
-	public VectorThread()
+	public VectorThread(int threadIndex, int num_operations)
 	{
-		
+		this.threadIndex = threadIndex;
+		this.num_operations = num_operations;
 	}
 	
 	@Override
 	public void run() 
 	{
+		// Contains the random number given.
+		int random;
 		
+		for(int i = 0; i < num_operations; i++)
+		{
+			// Get a number of either 1 to 3 from the random number generator.
+			random = (int) (Math.random() * 3) + 1;
+			
+			// If the number is 1, use a tail operation.
+			if(random == 1)
+			{
+				tail_Operations();
+			}
+						
+			// If the number is 2, use a random access operation.
+			else if(random == 2)
+			{
+				randomAccess_Operations();
+			}
+			
+			// If the number is 3, use a multi-position operation.
+			else if(random == 3)
+			{
+				multiPosition_Operations();
+			}
+		}
+	}
+	
+	private void tail_Operations()
+	{
+		// Random number generator.
+		Random rand = new Random();
+		
+		// Get a number of either 0 or 1 from the random number generator.
+		int random = rand.nextInt(2);
+					
+		// If the number is 0, use a wait-free push back operation on the vector.
+		if(random == 0)
+		{
+			
+		}
+					
+		// If the number is 1, use a wait-free pop back operation on the vector.
+		else if(random == 1)
+		{
+			
+		}
+	}
+	
+	private void randomAccess_Operations()
+	{
+		// Random number generator.
+		Random rand = new Random();
+		
+		// Get a number of either 0 or 1 from the random number generator.
+		int random = rand.nextInt(2);
+					
+		// If the number is 0, use a at() operation on the vector.
+		if(random == 0)
+		{
+			
+		}
+					
+		// If the number is 1, use a conditional write operation on the vector.
+		else if(random == 1)
+		{
+			
+		}
+	}
+	
+	private void multiPosition_Operations()
+	{
+		// Random number generator.
+		Random rand = new Random();
+		
+		// Get a number of either 0 or 1 from the random number generator.
+		int random = rand.nextInt(2);
+					
+		// If the number is 0, use a insertAt() operation on the vector.
+		if(random == 0)
+		{
+			
+		}
+					
+		// If the number is 1, use a eraseAt() pop back operation on the vector.
+		else if(random == 1)
+		{
+			
+		}
 	}
 }
 
@@ -550,7 +648,25 @@ public class Project_Assignment1
 {
 	// Contains the numbers of threads to use to test the wait-free vector.
 	public static int num_threads = 4;
-		
+	
+	// Contains a list of Nodes pre-allocated for each thread using during multithreading when accessing the stack.
+	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
+	
+	// Contains the maximum number operations used for each thread when accessing the stack.
+	public static int max_operations = 150000;
+	
+	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
+	public static int population = 50000;
+	
+	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
+	public static boolean segmented_contiguous = true;
+	
+	// Contains the initial capacity to be used when allocating a new Vector object.
+	public static int capacity = 100;
+	
+	// Contains the Vector object to be accessed by multiple threads.
+	public static Vector<Integer> vector = new Vector<Integer>(segmented_contiguous, capacity);
+	
 	public static void main (String[] args)
     {
 		Thread threads[] = new Thread[num_threads];
@@ -561,7 +677,7 @@ public class Project_Assignment1
 		// Spawn 4 concurrent threads accessing the stack.
 		for(int i = 0; i < num_threads; i++)
 		{
-			threads[i] = new Thread(new VectorThread());
+			threads[i] = new Thread(new VectorThread(i, max_operations));
 			threads[i].start();
 		}
 		
@@ -588,4 +704,30 @@ public class Project_Assignment1
 		// First convert the execution time to milliseconds then to seconds.
 		float execution_time = (float) duration / 1000000000;
     }
+	
+	// Function used to populate the concurrent stack by pushing 'x' number of elements.
+	public static void populate (int x)
+	{
+		for(int i = 0; i < x; i++)
+		{
+			Node<Integer> new_Node = new Node<Integer>(i);
+			vector.WF_pushBack(new_Node);
+		}
+	}
+	
+	// Function used to populate each thread with its own list of Nodes.
+	public static void populateThreads(int num_threads)
+	{
+		for(int i = 1; i <= num_threads; i++)
+		{
+			int start = (i * max_operations) + population;
+			int end = ((i + 1) * max_operations) + population;
+			
+			for(int j = start; j < end; j++)
+			{
+				Node<Integer> new_Node = new Node<Integer>(j);
+				threadNodes.get(i - 1).add(new_Node);
+			}
+		}
+	}
 }
