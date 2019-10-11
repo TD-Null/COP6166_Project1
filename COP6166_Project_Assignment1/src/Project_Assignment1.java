@@ -278,7 +278,7 @@ class Contiguous<T>
 /*
  * A wait-free vector class containing an internal storage, being either segmented
  * or contiguous, the current size, and utilizes tail operations, a condition write
- * operation, and multi-position operations.
+ * operation, random access operations, and multi-position operations.
  */
 class Vector<T>
 {
@@ -344,6 +344,41 @@ class Vector<T>
 	}
 	
 	/*
+	 * Function within the Vector class to get the capacity of the Vector's
+	 * internal storage. First, it is checked which type of storage is used 
+	 * before getting the capacity.
+	 */
+	int getCapacity()
+	{
+		if(!segmented_contiguous)
+		{
+			return segStorage.currentCapacity;
+		}
+
+		return conStorage.capacity;
+	}
+	
+	void popOp()
+	{
+		
+	}
+	
+	void pushOp()
+	{
+		
+	}
+	
+	void writeOp()
+	{
+		
+	}
+	
+	void shiftOp()
+	{
+		
+	}
+	
+	/*
 	 * Algorithm 6: 
 	 */
 	Return_Elem<T> WF_popBack()
@@ -354,7 +389,7 @@ class Vector<T>
 		{
 			if(pos == 0)
 			{
-				return new Return_Elem(false, null);
+				return new Return_Elem<T>(false, null);
 			}
 			
 			Node<T> spot = this.getSpot(pos);
@@ -372,7 +407,9 @@ class Vector<T>
 		
 	}
 	
-	
+	/*
+	 * Algorithm 9:
+	 */
 	Node<T> WF_pushBack()
 	{
 		int pos = this.size;
@@ -385,6 +422,9 @@ class Vector<T>
 		}
 	}
 	
+	/*
+	 * Algorithm 11:
+	 */
 	Return_Elem<T> CAS_popBack()
 	{
 		int pos = this.size - 1;
@@ -409,24 +449,75 @@ class Vector<T>
 		}
 	}
 	
-	T CAS_pushBack()
+	/*
+	 * Algorithm 12:
+	 */
+	Node<T> CAS_pushBack()
 	{
 		
 	}
 	
+	/*
+	 * Algorithm 13: 
+	 */
 	Return_Elem<T> FAA_popBack()
 	{
 		
 	}
 	
+	/*
+	 * Algorithm 14: 
+	 */
 	T FAA_pushBack()
 	{
 		
 	}
 	
+	/*
+	 * Algorithm 15: Function that return an element at the given position
+	 * of the internal storage. It is first checked if the position given
+	 * isn't outside the capacity of the internal storage. If so, then the
+	 * thread cannot access that position of the Vector. If the value received
+	 * is not equal to NotValue, then return true and the value of the element.
+	 * Else, return false and NULL.
+	 */
+	Return_Elem<T> at(int pos)
+	{
+		if(pos <= this.getCapacity())
+		{
+			Node<T> value = this.getSpot(pos);
+			
+			if((int) value.val != this.NotValue)
+			{
+				return new Return_Elem<T>(true, value);
+			}
+		}
+		
+		return new Return_Elem<T>(false, null);
+	}
+	
+	/*
+	 * Algorithm 16: 
+	 */
 	Return_Elem<T> cwrite(int pos, Node<T> old_Elem, Node<T> new_Elem)
 	{
+		if(pos <= this.getCapacity())
+		{
+			Node<T> value = this.getSpot(pos);
+			
+			if(value.val == old_Elem.val)
+			{
+				
+				return new Return_Elem<T>(true, old_Elem);
+			}
+			
+			else
+			{
+				return new Return_Elem<T>(false, value);
+			}
+		}
 		
+		return new Return_Elem<T>(false, null);
 	}
 	
 	boolean insertAt(int pos, Node<T> value)
