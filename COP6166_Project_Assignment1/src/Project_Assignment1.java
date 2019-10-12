@@ -11,7 +11,7 @@ import java.lang.*;
 /*
  * A Node class used in the Vector class to represent the
  * elements within the memory storage. Contains a Generic
- * value and a representation of the resize bit
+ * value and a representation of the resize bit.
  */
 class Node<T>
 {
@@ -24,6 +24,7 @@ class Node<T>
 		this.val = val;
 	}
 	
+	// Set the resize bit to 1.
 	void setResizeBit()
 	{
 		this.resizeBit = 1;
@@ -328,6 +329,39 @@ class Vector<T>
 		size = 0;
 	}
 	
+	@SuppressWarnings("unchecked")
+	Node<T> popOp(int pos)
+	{
+		Node<T> pop_Elem = this.getSpot(pos);
+		
+		if(!segmented_contiguous)
+		{
+			
+		}
+		
+		else
+		{
+			return conStorage.array[pos] = (Node<T>) NotValue_Elem;
+		}
+		
+		return pop_Elem;
+	}
+	
+	void pushOp(int pos, Node<T> new_Node)
+	{
+		
+	}
+	
+	void writeOp(int pos, Node<T> new_Node)
+	{
+		
+	}
+	
+	void shiftOp()
+	{
+		
+	}
+	
 	/*
 	 * Function within the Vector class to get the element of the given
 	 * position within the internal storage. First, it is checked which
@@ -358,26 +392,6 @@ class Vector<T>
 		return conStorage.capacity;
 	}
 	
-	void popOp()
-	{
-		
-	}
-	
-	void pushOp()
-	{
-		
-	}
-	
-	void writeOp()
-	{
-		
-	}
-	
-	void shiftOp()
-	{
-		
-	}
-	
 	/*
 	 * Algorithm 6: 
 	 */
@@ -396,7 +410,9 @@ class Vector<T>
 			
 			if((int) spot.val == NotValue)
 			{
-				
+				Node<T> pop_Elem = popOp(pos - 1);
+				this.size -= 1;
+				return new Return_Elem<T>(true, pop_Elem);
 			}
 			
 			else
@@ -405,12 +421,13 @@ class Vector<T>
 			}
 		}
 		
+		return new Return_Elem<T>(false, null);
 	}
 	
 	/*
 	 * Algorithm 9:
 	 */
-	Node<T> WF_pushBack(Node<T> value)
+	int WF_pushBack(Node<T> value)
 	{
 		int pos = this.size;
 		
@@ -418,8 +435,39 @@ class Vector<T>
 		{
 			Node<T> spot = this.getSpot(pos);
 			
-			
+			if((int) spot.val == NotValue)
+			{
+				if(pos == 0)
+				{
+					if((int) spot.val == NotValue)
+					{
+						pushOp(0, value);
+						this.size += 1;
+						return 0;
+					}
+					
+					else
+					{
+						pos++;
+						spot = this.getSpot(pos);
+					}
+				}
+				
+				if((int) spot.val == NotValue)
+				{
+					pushOp(pos - 1, value);
+					this.size += 1;
+					return 0;
+				}
+				
+				else
+				{
+					pos--;
+				}
+			}
 		}
+		
+		return 0;
 	}
 	
 	/*
@@ -444,7 +492,16 @@ class Vector<T>
 			
 			else
 			{
+				Node<T> spot = this.getSpot(pos);
 				
+				if((int) spot.val != NotValue)
+				{
+					this.size += 1;
+					Node<T> value = popOp(pos);
+					return new Return_Elem(true, value);
+				}
+				
+				pos--;
 			}
 		}
 	}
@@ -452,9 +509,28 @@ class Vector<T>
 	/*
 	 * Algorithm 12:
 	 */
-	Node<T> CAS_pushBack()
+	int CAS_pushBack()
 	{
+		int pos = this.size - 1;
+		int failures = 0;
 		
+		while(true)
+		{
+			if(failures++ < limit)
+			{
+				
+			}
+			
+			Node<T> spot = this.getSpot(pos);
+			
+			if((int) spot.val == NotValue)
+			{
+				size += 1;
+				return pos;
+			}
+			
+			pos++;
+		}
 	}
 	
 	/*
@@ -462,15 +538,31 @@ class Vector<T>
 	 */
 	Return_Elem<T> FAA_popBack()
 	{
+		int pos = this.size - 1;
+		this.size -= 1;
 		
+		if(pos >= 0)
+		{
+			Node<T> value = this.getSpot(pos);
+			this.getSpot(pos).store(NotValue);
+			
+			return new Return_Elem<T>(true, value);
+		}
+		
+		this.size += 1;
+		return new Return_Elem<T>(false, null);
 	}
 	
 	/*
 	 * Algorithm 14: 
 	 */
-	T FAA_pushBack()
+	int FAA_pushBack(Node<T> value)
 	{
+		int pos = this.size;
+		this.size += 1;
+		this.getSpot(pos).store(value.val);
 		
+		return pos;
 	}
 	
 	/*
@@ -520,17 +612,28 @@ class Vector<T>
 		return new Return_Elem<T>(false, null);
 	}
 	
+	/*
+	 * Algorithm 17: 
+	 */
 	boolean insertAt(int pos, Node<T> value)
 	{
 		return true;
 	}
 	
+	/*
+	 * Algorithm 18: 
+	 */
 	boolean eraseAt(int pos)
 	{
 		return true;
-	}	
+	}
 }
 
+/*
+ * Thread class used to access the thread using tail operations,
+ * random access operations, and multi-position operations at
+ * random.
+ */
 class VectorThread extends Thread
 {
 	/*
@@ -542,7 +645,11 @@ class VectorThread extends Thread
 	
 	// Contains the number of operations to use for the current thread.
 	int num_operations;
+	
+	// Counter used to access the thread's list of Nodes.
+	int counter = 0;
 
+	// In the constructor, initialize the thread ID and the number of operations.
 	public VectorThread(int threadIndex, int num_operations)
 	{
 		this.threadIndex = threadIndex;
@@ -555,6 +662,7 @@ class VectorThread extends Thread
 		// Contains the random number given.
 		int random;
 		
+		// The thread will use up to the number of operations given to acccess the vector.
 		for(int i = 0; i < num_operations; i++)
 		{
 			// Get a number of either 1 to 3 from the random number generator.
@@ -580,6 +688,7 @@ class VectorThread extends Thread
 		}
 	}
 	
+	// Use either a wait-free pop back or wait-free push back operation on the vector.
 	private void tail_Operations()
 	{
 		// Random number generator.
@@ -588,19 +697,24 @@ class VectorThread extends Thread
 		// Get a number of either 0 or 1 from the random number generator.
 		int random = rand.nextInt(2);
 					
-		// If the number is 0, use a wait-free push back operation on the vector.
+		// If the number is 0, use a wait-free pop back operation on the vector.
 		if(random == 0)
 		{
-			
+			// Pop the Node element at the tail of the vector.
+			Project_Assignment1.vector.WF_popBack();
 		}
 					
-		// If the number is 1, use a wait-free pop back operation on the vector.
+		// If the number is 1, use a wait-free push back operation on the vector.
 		else if(random == 1)
 		{
-			
+			// Push a Node element from the thread's list of Nodes onto the tail of the vector.
+			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+			Project_Assignment1.vector.WF_pushBack(n);
+			counter++;
 		}
 	}
 	
+	// Use either an at() or conditional write operation on the vector. 
 	private void randomAccess_Operations()
 	{
 		// Random number generator.
@@ -608,20 +722,31 @@ class VectorThread extends Thread
 		
 		// Get a number of either 0 or 1 from the random number generator.
 		int random = rand.nextInt(2);
-					
+		
+		// Get a random position from the vector based on size.
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size) + 1;
+		
 		// If the number is 0, use a at() operation on the vector.
 		if(random == 0)
 		{
-			
+			// Get the element of the vector at the given position.
+			Project_Assignment1.vector.at(random_pos);
 		}
 					
 		// If the number is 1, use a conditional write operation on the vector.
 		else if(random == 1)
 		{
-			
+			/*
+			 * Write a Node element at the given position of the vector using 
+			 * a conditional write with a Node from thread's list of Nodes.
+			 */
+			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+			Project_Assignment1.vector.cwrite(random_pos, Project_Assignment1.vector.getSpot(random_pos), n);
+			counter++;
 		}
 	}
 	
+	// Use either an insertAt() or eraseAt() operation on the vector.
 	private void multiPosition_Operations()
 	{
 		// Random number generator.
@@ -629,17 +754,27 @@ class VectorThread extends Thread
 		
 		// Get a number of either 0 or 1 from the random number generator.
 		int random = rand.nextInt(2);
+		
+		// Get a random position from the vector based on size.
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size) + 1;
 					
 		// If the number is 0, use a insertAt() operation on the vector.
 		if(random == 0)
 		{
-			
+			/*
+			 * Insert a Node element into the vector at the given position
+			 * using a Node from thread's list of Nodes.
+			 */
+			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+			Project_Assignment1.vector.insertAt(random_pos, n);
+			counter++;
 		}
 					
 		// If the number is 1, use a eraseAt() pop back operation on the vector.
 		else if(random == 1)
 		{
-			
+			// Erase the Node element in the vector at the given position.
+			Project_Assignment1.vector.eraseAt(random_pos);
 		}
 	}
 }
@@ -680,6 +815,7 @@ public class Project_Assignment1
 		
 		populateThreads(num_threads);
 		
+		// Contains the threads that will be used for multithreading
 		Thread threads[] = new Thread[num_threads];
 		
 		// Record the start of the execution time prior to spawning the threads.
@@ -700,7 +836,7 @@ public class Project_Assignment1
 				threads[i].join();
 			}
 			
-			catch (Exception ex)
+			catch (Exception ex) 
 			{
 				System.out.println("Failed to join thread.");
 			}
