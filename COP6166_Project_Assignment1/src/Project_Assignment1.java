@@ -89,8 +89,8 @@ class Segmented<T>
 	Node<T> getSpot(int rawpos)
 	{
 		/*
-		 * Use the given raw position from a thread to get the segment ID and
-		 * item ID locations within the list of segments.
+		 * Use the given raw position from a thread to get the segment index 
+		 * and item index locations within the list of segments.
 		 */
 		int pos = rawpos + this.initialCapacity;
 		int itemIdx = pos ^ (1 << ((int) Math.floor(Math.log(pos) / Math.log(2))));
@@ -102,7 +102,7 @@ class Segmented<T>
 		/*
 		 * If the array is NULL, meaning that the memory storage has not
 		 * been resized to given position, expand the list of segments
-		 * with the given segment ID.
+		 * with the given segment index.
 		 */
 		if(array == null)
 		{
@@ -146,6 +146,37 @@ class Segmented<T>
 		
 		// If the array segment is not NULL, then just return the segment itself.
 		return array;
+	}
+	
+	// Function that stores an element within the segmented memory storage at a given position.
+	void store(int rawpos, Node<T> elem)
+	{
+		/*
+		 * Use the given raw position from a thread to get the segment index 
+		 * and item index locations within the list of segments.
+		 */
+		int pos = rawpos + this.initialCapacity;
+		int itemIdx = pos ^ (1 << ((int) Math.floor(Math.log(pos) / Math.log(2))));
+		int segmentIdx = ((int) Math.floor(Math.log(pos) / Math.log(2)) - ((int) Math.floor(Math.log(this.initialCapacity) / Math.log(2))));
+		
+		// Obtain the array containing the requested element.
+		Node<T> [] array = this.segments.get(segmentIdx);
+		
+		/*
+		 * If the array is NULL, meaning that the memory storage has not
+		 * been resized to given position, expand the list of segments
+		 * with the given segment index.
+		 */
+		if(array == null)
+		{
+			this.expand(segmentIdx);
+		}
+		
+		/*
+		 * Insert the given element into the memory with the given
+		 * segment index and item index.
+		 */
+		this.segments.get(segmentIdx)[itemIdx] = elem;
 	}
 }
 
@@ -274,6 +305,20 @@ class Contiguous<T>
 		// Return the element of the Contiguous object's array with the given position.
 		return this.array[pos];
 	}
+	
+	// Functions that stores an element within the contiguous memory storage at a given position.
+	void store(int pos, Node<T> elem)
+	{
+		// Check first if the element at the position is a NotValue.
+		if(this.getSpot(pos).equals(this.vec.NotValue_Elem))
+		{
+			/*
+			 * Insert the element in the COntiguous object's array of 
+			 * elements at the given position.
+			 */
+			this.array[pos] = elem;
+		}
+	}
 }
 
 /*
@@ -336,12 +381,12 @@ class Vector<T>
 		
 		if(!segmented_contiguous)
 		{
-			
+			segStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
 		
 		else
 		{
-			return conStorage.array[pos] = (Node<T>) NotValue_Elem;
+			conStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
 		
 		return pop_Elem;
@@ -349,15 +394,36 @@ class Vector<T>
 	
 	void pushOp(int pos, Node<T> new_Node)
 	{
+		if(!segmented_contiguous)
+		{
+			segStorage.store(pos, new_Node);
+		}
 		
+		else
+		{
+			conStorage.store(pos, new_Node);
+		}
 	}
 	
 	void writeOp(int pos, Node<T> new_Node)
 	{
+		if(!segmented_contiguous)
+		{
+			segStorage.store(pos, new_Node);
+		}
+		
+		else
+		{
+			conStorage.store(pos, new_Node);
+		}
+	}
+	
+	void shiftOp_insert(int pos, Node<T> new_Node)
+	{
 		
 	}
 	
-	void shiftOp()
+	void shiftOp_erase(int pos)
 	{
 		
 	}
@@ -498,7 +564,7 @@ class Vector<T>
 				{
 					this.size += 1;
 					Node<T> value = popOp(pos);
-					return new Return_Elem(true, value);
+					return new Return_Elem<T>(true, value);
 				}
 				
 				pos--;
@@ -544,7 +610,7 @@ class Vector<T>
 		if(pos >= 0)
 		{
 			Node<T> value = this.getSpot(pos);
-			this.getSpot(pos).store(NotValue);
+			
 			
 			return new Return_Elem<T>(true, value);
 		}
@@ -560,7 +626,7 @@ class Vector<T>
 	{
 		int pos = this.size;
 		this.size += 1;
-		this.getSpot(pos).store(value.val);
+		
 		
 		return pos;
 	}
@@ -599,6 +665,15 @@ class Vector<T>
 			
 			if(value.val == old_Elem.val)
 			{
+				if(!segmented_contiguous)
+				{
+					segStorage.store(pos, new_Elem);
+				}
+				
+				else
+				{
+					conStorage.store(pos, new_Elem);
+				}
 				
 				return new Return_Elem<T>(true, old_Elem);
 			}
@@ -617,6 +692,7 @@ class Vector<T>
 	 */
 	boolean insertAt(int pos, Node<T> value)
 	{
+		shiftOp_insert(pos, value);
 		return true;
 	}
 	
@@ -625,6 +701,7 @@ class Vector<T>
 	 */
 	boolean eraseAt(int pos)
 	{
+		shiftOp_erase(pos);
 		return true;
 	}
 }
