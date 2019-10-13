@@ -74,15 +74,15 @@ class Segmented<T>
 	
 	/*
 	 * In the constructor, when given a capacity, have the initial and
-	 * current be the power of 2 of the given capacity, such that the
-	 * length of the first array segment is of 2^Y, where Y is the given
+	 * current capacity be the power of 2 of the given capacity, such that 
+	 * the length of the first array segment is of 2^Y, where Y is the given
 	 * capacity at the constructor. Add the first array segment with the
 	 * current capacity.
 	 */
 	@SuppressWarnings("unchecked")
 	Segmented(int capacity)
 	{
-		initialCapacity = currentCapacity = (int) Math.pow(2, capacity);
+		initialCapacity = currentCapacity = capacity;
 		segments.add((Node<T> []) new Node[currentCapacity]);
 		Arrays.fill(segments.get(0), NotValue_Elem);
 	}
@@ -102,7 +102,18 @@ class Segmented<T>
 		int segmentIdx = ((int) Math.floor(Math.log(pos) / Math.log(2)) - ((int) Math.floor(Math.log(this.initialCapacity) / Math.log(2))));
 		
 		// Obtain the array containing the requested element.
-		Node<T> [] array = this.segments.get(segmentIdx);
+		Node<T> [] array;
+		
+		// Check if the array is within the size of the segments.
+		if(segmentIdx >= segments.size())
+		{
+			array = null;
+		}
+		
+		else
+		{
+			array = this.segments.get(segmentIdx);
+		}
 		
 		/*
 		 * If the array is NULL, meaning that the memory storage has not
@@ -128,7 +139,18 @@ class Segmented<T>
 	@SuppressWarnings("unchecked")
 	Node<T> [] expand(int segIdx)
 	{
-		Node<T> [] array = this.segments.get(segIdx);
+		Node<T> [] array;
+		
+		// First, try to get the array at the given segment index.
+		if(segIdx >= segments.size())
+		{
+			array = null;
+		}
+		
+		else
+		{
+			array = this.segments.get(segIdx);
+		}
 		
 		// Check first if the given array segment is NULL before expanding.
 		if(array == null)
@@ -211,7 +233,8 @@ class Contiguous<T>
 		this.capacity = capacity;
 		this.old = old;
 		this.vec = vec;
-		array = (Node<T> []) new Node [capacity];
+		this.array = (Node<T> []) new Node [capacity];
+		Arrays.fill(this.array, this.vec.NotValue_Elem);
 	}
 	
 	/*
@@ -230,14 +253,14 @@ class Contiguous<T>
 		 * are initialized to NotValue.
 		 */
 		Contiguous<T> vnew = new Contiguous<T>(this.vec, this, this.capacity * 2);
-		Arrays.fill(vnew.array, 0, this.capacity, this.vec.NotCopied_Elem);
-		Arrays.fill(vnew.array, this.capacity + 1, vnew.array.length - 1, this.vec.NotValue_Elem);
+		Arrays.fill(vnew.array, 0, this.capacity - 1, this.vec.NotCopied_Elem);
+		Arrays.fill(vnew.array, this.capacity, vnew.array.length - 1, this.vec.NotValue_Elem);
 		
 		// Check if the current Contiguous object is the same as the old reference.
 		if(this.vec.conStorage.equals(this))
 		{
 			// If so, copy all elements from the old reference into the new array.
-			for(int i = this.capacity; i >= 0; i--)
+			for(int i = this.capacity - 1; i >= 0; i--)
 			{
 				vnew.copyValue(i);
 			}
@@ -302,7 +325,7 @@ class Contiguous<T>
 		 * If a thread sees that the position of the array is NotCopied, then
 		 * copy the value from the old referenced Contiguous object.
 		 */
-		if((int) this.old.array[pos].val == this.vec.NotCopied)
+		if((int) this.array[pos].val == this.vec.NotCopied)
 		{
 			this.copyValue(pos);
 		}
@@ -315,7 +338,7 @@ class Contiguous<T>
 	void store(int pos, Node<T> elem)
 	{
 		// Check first if the element at the position is a NotValue.
-		if(this.getSpot(pos).equals(this.vec.NotValue_Elem))
+		if((int) getSpot(pos).val == this.vec.NotValue)
 		{
 			/*
 			 * Insert the element in the COntiguous object's array of 
@@ -378,13 +401,24 @@ class Vector<T>
 		size = 0;
 	}
 	
-	// 
+	/* 
+	 * Function that uses a pop operation on the Vectors' internal storage 
+	 * given a position.
+	 */
 	@SuppressWarnings("unchecked")
 	Node<T> popOp(int pos)
 	{
+		/*
+		 * Get the popped element first at the tail of the Vector's 
+		 * internal storage or array of elements.
+		 */
 		Node<T> pop_Elem = this.getSpot(pos);
 		
-		
+		/*
+		 * First, check which type of internal storage is being used for this 
+		 * Vector. Then, store a NotValue element at the tail of the Vector's 
+		 * internal storage or array of elements.
+		 */
 		if(!segmented_contiguous)
 		{
 			segStorage.store(pos, (Node<T>) NotValue_Elem);
@@ -395,11 +429,21 @@ class Vector<T>
 			conStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
 		
+		// Return the popped element from the vector.
 		return pop_Elem;
 	}
 	
+	/* 
+	 * Function that uses a push operation on the Vectors' internal storage 
+	 * given a position a new Node element to push into the memory.
+	 */
 	void pushOp(int pos, Node<T> new_Node)
 	{
+		/*
+		 * First, check which type of internal storage is being used for this 
+		 * Vector. Then, store the new Node element at the tail of the Vector's 
+		 * internal storage or array of elements.
+		 */
 		if(!segmented_contiguous)
 		{
 			segStorage.store(pos, new_Node);
@@ -525,34 +569,25 @@ class Vector<T>
 	Return_Elem<T> CAS_popBack()
 	{
 		int pos = this.size - 1;
-		int failures = 0;
 		
-		while(true)
+		if(pos < 0)
 		{
-			if(failures++ < limit)
-			{
-				
-			}
+			return new Return_Elem<T>(false, null);
+		}
 			
-			else if(pos < 0)
-			{
-				return new Return_Elem<T>(false, null);
-			}
-			
-			else
-			{
-				Node<T> spot = this.getSpot(pos);
+		else
+		{
+			Node<T> spot = this.getSpot(pos);
 				
-				if((int) spot.val != NotValue)
-				{
-					this.size += 1;
-					Node<T> value = popOp(pos);
-					return new Return_Elem<T>(true, value);
-				}
-				
-				pos--;
+			if((int) spot.val != NotValue)
+			{
+				this.size += 1;
+				Node<T> value = popOp(pos);
+				return new Return_Elem<T>(true, value);
 			}
 		}
+			
+		return new Return_Elem<T>(false, null);
 	}
 	
 	/*
@@ -561,26 +596,17 @@ class Vector<T>
 	int CAS_pushBack(Node<T> value)
 	{
 		int pos = this.size;
-		int failures = 0;
 		
-		while(true)
+		Node<T> spot = this.getSpot(pos);
+		
+		if((int) spot.val == NotValue)
 		{
-			if(failures++ < limit)
-			{
-				
-			}
-			
-			Node<T> spot = this.getSpot(pos);
-			
-			if((int) spot.val == NotValue)
-			{
-				size += 1;
-				pushOp(pos, value);
-				return pos;
-			}
-			
-			pos++;
+			size += 1;
+			pushOp(pos, value);
+			return pos;
 		}
+		
+		return 0;
 	}
 	
 	/*
@@ -615,19 +641,25 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 15: Function that return an element at the given position
-	 * of the internal storage. It is first checked if the position given
-	 * isn't outside the capacity of the internal storage. If so, then the
-	 * thread cannot access that position of the Vector. If the value received
-	 * is not equal to NotValue, then return true and the value of the element.
-	 * Else, return false and NULL.
+	 * Algorithm 15: Function that returns an element at the given position
+	 * of the internal storage.
 	 */
 	Return_Elem<T> at(int pos)
 	{
+		/* 
+		 * It is first checked if the position given isn't outside the capacity 
+		 * of the internal storage.If so, then the thread cannot access that 
+		 * position of the Vector, so return false and a NULL value.
+		 */
 		if(pos <= this.getCapacity())
 		{
+			// Get the Node element at the given position.
 			Node<T> value = this.getSpot(pos);
 			
+			/* 
+			 * If the value received is not equal to NotValue, then return true 
+			 * and the value of the element. Else, return false and NULL.
+			 */
 			if((int) value.val != this.NotValue)
 			{
 				return new Return_Elem<T>(true, value);
@@ -638,14 +670,30 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 16: A condition write function
+	 * Algorithm 16: A conditional write function that inserts a new
+	 * Node element into the internal storage of the Vector, if the
+	 * current Node element at the position is equal to the old Node
+	 * element given in the function.
 	 */
 	Return_Elem<T> cwrite(int pos, Node<T> old_Elem, Node<T> new_Elem)
 	{
+		/* 
+		 * It is first checked if the position given isn't outside the capacity 
+		 * of the internal storage. If so, then the thread cannot access that 
+		 * position of the Vector, so return false and a NULL value.
+		 */
 		if(pos <= this.getCapacity())
 		{
+			// Get the Node element at the given position.
 			Node<T> value = this.getSpot(pos);
 			
+			/* 
+			 * If the value received is equal to the old Node element given,
+			 * then the store the new Node element at the given position,
+			 * depending on what type of internal storage is used for this
+			 * Vector and return true and the old Node element. If not, the
+			 * return false and the new Node element.
+			 */
 			if(value.val == old_Elem.val)
 			{
 				if(!segmented_contiguous)
@@ -690,6 +738,7 @@ class Vector<T>
 		{
 			for(int i = size; i >= pos + 1; i--)
 			{
+				System.out.println(i);
 				Node<T> insert = segStorage.getSpot(i - 1);
 				conStorage.store(i, insert);
 			}
@@ -718,7 +767,7 @@ class Vector<T>
 		
 		else
 		{
-			for(int i = size; i >= pos + 1; i--)
+			for(int i = pos; i < this.size; i++)
 			{
 				Node<T> insert = segStorage.getSpot(i + 1);
 				conStorage.store(i, insert);
@@ -826,7 +875,7 @@ class VectorThread extends Thread
 		int random = rand.nextInt(2);
 		
 		// Get a random position from the vector based on size.
-		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size) + 1;
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size);
 		
 		// If the number is 0, use a at() operation on the vector.
 		if(random == 0)
@@ -858,8 +907,8 @@ class VectorThread extends Thread
 		int random = rand.nextInt(2);
 		
 		// Get a random position from the vector based on size.
-		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size) + 1;
-					
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size);
+		
 		// If the number is 0, use a insertAt() operation on the vector.
 		if(random == 0)
 		{
@@ -884,16 +933,16 @@ class VectorThread extends Thread
 public class Project_Assignment1 
 {
 	// Contains the numbers of threads to use to test the wait-free vector.
-	public static int num_threads = 4;
+	public static int num_threads = 1;
 	
 	// Contains a list of Nodes pre-allocated for each thread using during multithreading when accessing the stack.
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 150000;
+	public static int max_operations = 1000;
 	
 	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
-	public static int population = 50000;
+	public static int population = 200;
 	
 	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
 	public static boolean segmented_contiguous = true;
