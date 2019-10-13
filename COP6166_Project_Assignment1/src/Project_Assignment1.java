@@ -68,6 +68,10 @@ class Segmented<T>
 	// Contains the list of array segments containing the memory storage.
 	ArrayList<Node<T> []> segments = new ArrayList<Node<T> []>();
 	
+	// Contains the Value and Element for NotValue.
+	int NotValue = Integer.MAX_VALUE;
+	Node<Integer> NotValue_Elem = new Node<Integer>(NotValue);
+	
 	/*
 	 * In the constructor, when given a capacity, have the initial and
 	 * current be the power of 2 of the given capacity, such that the
@@ -80,6 +84,7 @@ class Segmented<T>
 	{
 		initialCapacity = currentCapacity = (int) Math.pow(2, capacity);
 		segments.add((Node<T> []) new Node[currentCapacity]);
+		Arrays.fill(segments.get(0), NotValue_Elem);
 	}
 	
 	/*
@@ -120,6 +125,7 @@ class Segmented<T>
 	 * Algorithm 2: Expand the array up to the given segment ID using bitwise
 	 * operations.
 	 */
+	@SuppressWarnings("unchecked")
 	Node<T> [] expand(int segIdx)
 	{
 		Node<T> [] array = this.segments.get(segIdx);
@@ -135,8 +141,8 @@ class Segmented<T>
 			 * new capacity computed. Add the new capacity onto the current capacity
 			 * of the memory storage.
 			 */
-			@SuppressWarnings("unchecked")
 			Node<T> [] newArray = (Node<T> []) new Node[newCapacity];
+			Arrays.fill(newArray, NotValue_Elem);
 			this.segments.add(newArray);
 			this.currentCapacity += newCapacity;
 			
@@ -216,7 +222,6 @@ class Contiguous<T>
 	 * The elements from the old Contiguous object's array are copied onto the
 	 * new Contiguous object's array.
 	 */
-	@SuppressWarnings("unchecked")
 	Contiguous<T> resize()
 	{
 		/*
@@ -356,7 +361,6 @@ class Vector<T>
 	 * storage with the given capacity and set the current size of the Vector
 	 * to be 0.
 	 */
-	@SuppressWarnings("unchecked")
 	Vector(boolean segmented_contiguous, int capacity)
 	{
 		this.segmented_contiguous = segmented_contiguous;
@@ -374,10 +378,12 @@ class Vector<T>
 		size = 0;
 	}
 	
+	// 
 	@SuppressWarnings("unchecked")
 	Node<T> popOp(int pos)
 	{
 		Node<T> pop_Elem = this.getSpot(pos);
+		
 		
 		if(!segmented_contiguous)
 		{
@@ -403,29 +409,6 @@ class Vector<T>
 		{
 			conStorage.store(pos, new_Node);
 		}
-	}
-	
-	void writeOp(int pos, Node<T> new_Node)
-	{
-		if(!segmented_contiguous)
-		{
-			segStorage.store(pos, new_Node);
-		}
-		
-		else
-		{
-			conStorage.store(pos, new_Node);
-		}
-	}
-	
-	void shiftOp_insert(int pos, Node<T> new_Node)
-	{
-		
-	}
-	
-	void shiftOp_erase(int pos)
-	{
-		
 	}
 	
 	/*
@@ -575,9 +558,9 @@ class Vector<T>
 	/*
 	 * Algorithm 12:
 	 */
-	int CAS_pushBack()
+	int CAS_pushBack(Node<T> value)
 	{
-		int pos = this.size - 1;
+		int pos = this.size;
 		int failures = 0;
 		
 		while(true)
@@ -592,6 +575,7 @@ class Vector<T>
 			if((int) spot.val == NotValue)
 			{
 				size += 1;
+				pushOp(pos, value);
 				return pos;
 			}
 			
@@ -610,8 +594,7 @@ class Vector<T>
 		if(pos >= 0)
 		{
 			Node<T> value = this.getSpot(pos);
-			
-			
+			popOp(pos);
 			return new Return_Elem<T>(true, value);
 		}
 		
@@ -625,8 +608,8 @@ class Vector<T>
 	int FAA_pushBack(Node<T> value)
 	{
 		int pos = this.size;
+		pushOp(pos, value);
 		this.size += 1;
-		
 		
 		return pos;
 	}
@@ -655,7 +638,7 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 16: 
+	 * Algorithm 16: A condition write function
 	 */
 	Return_Elem<T> cwrite(int pos, Node<T> old_Elem, Node<T> new_Elem)
 	{
@@ -692,7 +675,30 @@ class Vector<T>
 	 */
 	boolean insertAt(int pos, Node<T> value)
 	{
-		shiftOp_insert(pos, value);
+		if(!segmented_contiguous)
+		{
+			for(int i = size; i >= pos + 1; i--)
+			{
+				Node<T> insert = segStorage.getSpot(i - 1);
+				segStorage.store(i, insert);
+			}
+			
+			segStorage.store(pos, value);
+		}
+		
+		else
+		{
+			for(int i = size; i >= pos + 1; i--)
+			{
+				Node<T> insert = segStorage.getSpot(i - 1);
+				conStorage.store(i, insert);
+			}
+			
+			conStorage.store(pos, value);
+		}
+		
+		this.size += 1;
+		
 		return true;
 	}
 	
@@ -701,7 +707,26 @@ class Vector<T>
 	 */
 	boolean eraseAt(int pos)
 	{
-		shiftOp_erase(pos);
+		if(!segmented_contiguous)
+		{
+			for(int i = pos; i < this.size; i++)
+			{
+				Node<T> insert = segStorage.getSpot(i + 1);
+				segStorage.store(i, insert);
+			}
+		}
+		
+		else
+		{
+			for(int i = size; i >= pos + 1; i--)
+			{
+				Node<T> insert = segStorage.getSpot(i + 1);
+				conStorage.store(i, insert);
+			}
+		}
+		
+		this.size -= 1;
+		
 		return true;
 	}
 }
@@ -925,8 +950,10 @@ public class Project_Assignment1
 		// Record the total execution time.
 		long duration = end - start;
 			
-		// First convert the execution time to milliseconds then to seconds.
+		// Convert the execution time to seconds.
 		float execution_time = (float) duration / 1000000000;
+		
+		System.out.println(execution_time + " sec");
     }
 	
 	// Function used to populate the concurrent stack by pushing 'x' number of elements.
