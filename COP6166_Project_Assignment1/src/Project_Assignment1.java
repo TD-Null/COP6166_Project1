@@ -104,7 +104,11 @@ class Segmented<T>
 		// Obtain the array containing the requested element.
 		Node<T> [] array;
 		
-		// Check if the array is within the size of the segments.
+		/*
+		 * Check if the array is within the size of the segments. If so,
+		 * then get the array from the segmented storage at the segment
+		 * index. If not, then the array is currently NULL.
+		 */
 		if(segmentIdx >= segments.size())
 		{
 			array = null;
@@ -188,7 +192,22 @@ class Segmented<T>
 		int segmentIdx = ((int) Math.floor(Math.log(pos) / Math.log(2)) - ((int) Math.floor(Math.log(this.initialCapacity) / Math.log(2))));
 		
 		// Obtain the array containing the requested element.
-		Node<T> [] array = this.segments.get(segmentIdx);
+		Node<T> [] array;
+		
+		/*
+		 * Check if the array is within the size of the segments. If so,
+		 * then get the array from the segmented storage at the segment
+		 * index. If not, then the array is currently NULL.
+		 */
+		if(segmentIdx >= segments.size())
+		{
+			array = null;
+		}
+		
+		else
+		{
+			array = this.segments.get(segmentIdx);
+		}
 		
 		/*
 		 * If the array is NULL, meaning that the memory storage has not
@@ -337,15 +356,11 @@ class Contiguous<T>
 	// Functions that stores an element within the contiguous memory storage at a given position.
 	void store(int pos, Node<T> elem)
 	{
-		// Check first if the element at the position is a NotValue.
-		if((int) getSpot(pos).val == this.vec.NotValue)
-		{
-			/*
-			 * Insert the element in the COntiguous object's array of 
-			 * elements at the given position.
-			 */
-			this.array[pos] = elem;
-		}
+		/*
+		 * Insert the element in the Contiguous object's array of 
+		 * elements at the given position.
+		 */
+		this.array[pos] = elem;
 	}
 }
 
@@ -374,9 +389,6 @@ class Vector<T>
 	int NotValue = Integer.MAX_VALUE;
 	Node<Integer> NotCopied_Elem = new Node<Integer>(NotCopied);
 	Node<Integer> NotValue_Elem = new Node<Integer>(NotValue);
-	
-	// Contains the limit of failures when a thread attempts to do an operation.
-	int limit = 100;
 	
 	/*
 	 * In the constructor, a boolean value is given to signify which type of
@@ -428,6 +440,9 @@ class Vector<T>
 		{
 			conStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
+		
+		//System.out.println(pop_Elem.val);
+		//System.out.println(this.getSpot(pos).val);
 		
 		// Return the popped element from the vector.
 		return pop_Elem;
@@ -486,102 +501,121 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 6: 
+	 * Algorithm 6: A wait-free pop back operation that pops the
+	 * element from the tail of the Vector's internal storage or
+	 * array of elements.
 	 */
 	Return_Elem<T> WF_popBack()
 	{
+		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
-		for(int failures = 0; failures < limit; failures++)
+		/*
+		 * If the position isn't within the bounds of Vector's memory
+		 * storage, then return false and a NULL value.
+		 */
+		if(pos == 0)
 		{
-			if(pos == 0)
-			{
-				return new Return_Elem<T>(false, null);
-			}
+			return new Return_Elem<T>(false, null);
+		}
 			
-			Node<T> spot = this.getSpot(pos);
+		// Get the Node value at the given position.
+		Node<T> spot = this.getSpot(pos - 1);
 			
-			if((int) spot.val == NotValue)
-			{
-				Node<T> pop_Elem = popOp(pos - 1);
-				this.size -= 1;
-				return new Return_Elem<T>(true, pop_Elem);
-			}
-			
-			else
-			{
-				pos++;
-			}
+		/*
+		 * If the current spot is a NotValue, then pop the element
+		 * at the tail of the Vector's memory storage, decrement the
+		 * size of the Vector, and return true and the value of the
+		 * popped element. If not, then return false and a NULL value.
+		 */
+		if((int) spot.val != this.NotValue)
+		{
+			Node<T> pop_Elem = popOp(pos - 1);
+			this.size -= 1;
+			return new Return_Elem<T>(true, pop_Elem);
 		}
 		
 		return new Return_Elem<T>(false, null);
 	}
 	
 	/*
-	 * Algorithm 9:
+	 * Algorithm 9: A wait-free push back operation that pushes the
+	 * given Node value onto the tail of the Vector's internal storage or
+	 * array of elements.
 	 */
 	int WF_pushBack(Node<T> value)
 	{
+		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
-		for(int failures = 0; failures < limit; failures++)
+		// Get the Node value at the given position.
+		Node<T> spot = this.getSpot(pos);
+		//System.out.println(spot.val);
+		/*
+		 * If the current spot is a NotValue, then push the given Node
+		 * value at the tail of the Vector's memory storage, increment the
+		 * size of the Vector.
+		 */
+		if((int) spot.val == this.NotValue)
 		{
-			Node<T> spot = this.getSpot(pos);
+			this.size += 1;
 			
-			if((int) spot.val == NotValue)
+			/*
+			 * If the position is 0, or the Vector is currently empty with
+			 * a size of 0, then push the Node value at position 0. Else,
+			 * push the value at the given position.
+			 */
+			if(pos == 0)
 			{
-				if(pos == 0)
-				{
-					if((int) spot.val == NotValue)
-					{
-						pushOp(0, value);
-						this.size += 1;
-						return 0;
-					}
-					
-					else
-					{
-						pos++;
-						spot = this.getSpot(pos);
-					}
-				}
-				
-				if((int) spot.val == NotValue)
-				{
-					pushOp(pos - 1, value);
-					this.size += 1;
-					return 0;
-				}
-				
-				else
-				{
-					pos--;
-				}
+				pushOp(0, value);
+				return 0;
 			}
+			
+			else
+			{
+				pushOp(pos, value);
+				return pos - 1;
+			}
+			
 		}
 		
-		return 0;
+		return pos;
 	}
 	
 	/*
-	 * Algorithm 11:
+	 * Algorithm 11: Compare and Set pop back operation that compares
+	 * the value at the tail of the Vector's internal storage, and if
+	 * valid, the size of the Vector is decremented and the Node value
+	 * is popped from the Vector's memory.
 	 */
 	Return_Elem<T> CAS_popBack()
 	{
+		// Get the position of the tail in the Vector's memory storage.
 		int pos = this.size - 1;
 		
+		/*
+		 * If the position isn't within the bounds of Vector's memory
+		 * storage, then return false and a NULL value.
+		 */
 		if(pos < 0)
 		{
 			return new Return_Elem<T>(false, null);
 		}
-			
+		
+		/*
+		 * Get the Node value at the given position and if it is a 
+		 * NotValue, then decrement the size, pop the element from
+		 * the Vectors's internal storage, and return true and the
+		 * value of the popped element. If not, then return false
+		 * and a NULL value.
+		 */
 		else
 		{
 			Node<T> spot = this.getSpot(pos);
 				
-			if((int) spot.val != NotValue)
+			if((int) spot.val != this.NotValue)
 			{
-				this.size += 1;
+				this.size -= 1;
 				Node<T> value = popOp(pos);
 				return new Return_Elem<T>(true, value);
 			}
@@ -591,32 +625,57 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 12:
+	 * Algorithm 12: Compare and Set push back operation that compares
+	 * the value at the tail of the Vector's internal storage, and if
+	 * valid, the size of the Vector is incremented and the given Node
+	 * value is pushed onto the Vector's memory.
 	 */
 	int CAS_pushBack(Node<T> value)
 	{
+		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
+		// Get the Node value at the given position.
 		Node<T> spot = this.getSpot(pos);
 		
-		if((int) spot.val == NotValue)
+		/*
+		 * If the Node value at the spot is a NotValue, then increment the
+		 * size and push the given Node value onto the Vector's internal
+		 * storage.
+		 */
+		if((int) spot.val == this.NotValue)
 		{
-			size += 1;
+			this.size += 1;
 			pushOp(pos, value);
 			return pos;
 		}
 		
-		return 0;
+		return pos;
 	}
 	
 	/*
-	 * Algorithm 13: 
+	 * Algorithm 13: Fetch-and-Add pop back operation that pops
+	 * the Node element value in the Vector's internal storage at 
+	 * the tail of the array of elements. This is done by fetching
+	 * the position and popping the Node value at the position then
+	 * decrementing the overall size of the Vector.
 	 */
 	Return_Elem<T> FAA_popBack()
 	{
+		/*
+		 * Get the position of the tail of the array of elements
+		 * and decrement the size afterwards.
+		 */
 		int pos = this.size - 1;
 		this.size -= 1;
 		
+		/*
+		 * If the given position is within the bounds of the Vector's
+		 * internal storage of elements, then pop the element from the
+		 * tail of the array of elements and returned true and popped
+		 * element. If not, then increment the size to revert it back
+		 * to its original value and return false and a NULL value.
+		 */
 		if(pos >= 0)
 		{
 			Node<T> value = this.getSpot(pos);
@@ -629,10 +688,19 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 14: 
+	 * Algorithm 14: Fetch-and-Add push back operation that pushes
+	 * the given Node element value into the Vector's internal storage
+	 * at the tail of the array of elements. This is done by fetching
+	 * the position and pushing the Node value at the position then
+	 * incrementing the overall size of the Vector.
 	 */
 	int FAA_pushBack(Node<T> value)
 	{
+		/*
+		 * Get the position after the tail of the array of elements and 
+		 * push the Node value onto the received position. Increment the
+		 * size afterwards.
+		 */
 		int pos = this.size;
 		pushOp(pos, value);
 		this.size += 1;
@@ -719,16 +787,24 @@ class Vector<T>
 	}
 	
 	/*
-	 * Algorithm 17: 
+	 * Algorithm 17: An insert function that inserts a given Node element 
+	 * value at the given position. The elements must be shifted from the
+	 * position to the tail of the Vector's internal storage or array of
+	 * elements.
 	 */
 	boolean insertAt(int pos, Node<T> value)
 	{
+		/*
+		 * First, check which type of memory storage is being used.
+		 * Afterwards, insert the element into the Vector in the internal
+		 * storage at the given position and shift the elements.
+		 */
 		if(!segmented_contiguous)
 		{
 			for(int i = size; i >= pos + 1; i--)
 			{
-				Node<T> insert = segStorage.getSpot(i - 1);
-				segStorage.store(i, insert);
+				Node<T> shift = segStorage.getSpot(i - 1);
+				segStorage.store(i, shift);
 			}
 			
 			segStorage.store(pos, value);
@@ -738,30 +814,49 @@ class Vector<T>
 		{
 			for(int i = size; i >= pos + 1; i--)
 			{
-				System.out.println(i);
-				Node<T> insert = segStorage.getSpot(i - 1);
-				conStorage.store(i, insert);
+				Node<T> shift = conStorage.getSpot(i - 1);
+				conStorage.store(i, shift);
 			}
 			
 			conStorage.store(pos, value);
 		}
 		
+		/*
+		 * Increment the size of the Vector after inserting the element 
+		 * into the memory storage.
+		 */
 		this.size += 1;
 		
 		return true;
 	}
 	
 	/*
-	 * Algorithm 18: 
+	 * Algorithm 18: An erase function that erase the Node element at the 
+	 * given position. The elements must be shifted from the tail to the
+	 * position of the Vector's internal storage or array of elements.
 	 */
 	boolean eraseAt(int pos)
 	{
+		/*
+		 * First, check if the current size is 0. If so, then there is 
+		 * nothing to erase from the Vector's internal storage.
+		 */
+		if(this.size == 0)
+		{
+			return false;
+		}
+		
+		/*
+		 * First, check which type of memory storage is being used.
+		 * Afterwards, erase the element of the Vector in the internal
+		 * storage at the given position and shift the elements.
+		 */
 		if(!segmented_contiguous)
 		{
 			for(int i = pos; i < this.size; i++)
 			{
-				Node<T> insert = segStorage.getSpot(i + 1);
-				segStorage.store(i, insert);
+				Node<T> shift = segStorage.getSpot(i + 1);
+				segStorage.store(i, shift);
 			}
 		}
 		
@@ -769,11 +864,15 @@ class Vector<T>
 		{
 			for(int i = pos; i < this.size; i++)
 			{
-				Node<T> insert = segStorage.getSpot(i + 1);
-				conStorage.store(i, insert);
+				Node<T> shift = conStorage.getSpot(i + 1);
+				conStorage.store(i, shift);
 			}
 		}
 		
+		/*
+		 * Decrement the size of the Vector after erasing the element 
+		 * from the memory storage.
+		 */
 		this.size -= 1;
 		
 		return true;
@@ -847,21 +946,25 @@ class VectorThread extends Thread
 		
 		// Get a number of either 0 or 1 from the random number generator.
 		int random = rand.nextInt(2);
-					
+		
 		// If the number is 0, use a wait-free pop back operation on the vector.
 		if(random == 0)
 		{
+			//System.out.println("Pop " + Project_Assignment1.vector.size);
 			// Pop the Node element at the tail of the vector.
 			Project_Assignment1.vector.WF_popBack();
+			//System.out.println(Project_Assignment1.vector.size);
 		}
 					
 		// If the number is 1, use a wait-free push back operation on the vector.
 		else if(random == 1)
 		{
+			//System.out.println("Push " + Project_Assignment1.vector.size);
 			// Push a Node element from the thread's list of Nodes onto the tail of the vector.
 			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
 			Project_Assignment1.vector.WF_pushBack(n);
 			counter++;
+			//System.out.println(Project_Assignment1.vector.size);
 		}
 	}
 	
@@ -939,26 +1042,30 @@ public class Project_Assignment1
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 1000;
+	public static int max_operations = 150000;
+	
+	// Contains the incremented number of operations for each test case.
+	public static int inc_operations = 10000;
 	
 	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
-	public static int population = 200;
+	public static int population = 100;
 	
 	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
 	public static boolean segmented_contiguous = true;
 	
 	// Contains the initial capacity to be used when allocating a new Vector object.
-	public static int capacity = 100;
+	public static int capacity = 1000;
 	
 	// Contains the Vector object to be accessed by multiple threads.
 	public static Vector<Integer> vector = new Vector<Integer>(segmented_contiguous, capacity);
 	
 	public static void main (String[] args)
     {
-		// Populate the vector with elements.
-		populate(population);
-		
-		// Add a new list of Nodes for the new thread and populate the threads with a list of Nodes.
+		/*
+		 * Add a new list of Nodes for the new thread and populate the threads 
+		 * with a list of Nodes. This is to allocate Nodes for each thread to
+		 * use when accessing the Vector class object
+		 */
 		for(int i = 0; i < num_threads; i++)
 		{
 			threadNodes.add(new ArrayList<Node<Integer>>());
@@ -966,43 +1073,59 @@ public class Project_Assignment1
 		
 		populateThreads(num_threads);
 		
-		// Contains the threads that will be used for multithreading
-		Thread threads[] = new Thread[num_threads];
+		System.out.println("# Operations:\tExecution time:");
 		
-		// Record the start of the execution time prior to spawning the threads.
-		long start = System.nanoTime();
-		
-		// Spawn 4 concurrent threads accessing the stack.
-		for(int i = 0; i < num_threads; i++)
+		// For each test case, give different numbers of operations to use for each thread.
+		for(int i = inc_operations; i <= max_operations; i += inc_operations)
 		{
-			threads[i] = new Thread(new VectorThread(i, max_operations));
-			threads[i].start();
-		}
-		
-		// Join the threads.
-		for(int i = 0; i < num_threads; i++)
-		{
-			try
+			// Declare a new Vector object for each test case.
+			vector = new Vector<Integer>(segmented_contiguous, capacity);
+			
+			// Populate the vector with elements.
+			populate(population);
+			
+			// Contains the threads that will be used for multithreading
+			Thread threads[] = new Thread[num_threads];
+			
+			// Record the start of the execution time prior to spawning the threads.
+			long start = System.nanoTime();
+			
+			// Spawn 4 concurrent threads accessing the stack.
+			for(int j = 0; j < num_threads; j++)
 			{
-				threads[i].join();
+				threads[j] = new Thread(new VectorThread(j, i));
+				threads[j].start();
 			}
 			
-			catch (Exception ex) 
+			// Join the threads.
+			for(int j = 0; j < num_threads; j++)
 			{
-				System.out.println("Failed to join thread.");
+				try
+				{
+					threads[j].join();
+				}
+				
+				catch (Exception ex) 
+				{
+					System.out.println("Failed to join thread.");
+				}
 			}
-		}
-		
-		// Record the end of the execution time after all threads are complete.
-		long end = System.nanoTime();
-					
-		// Record the total execution time.
-		long duration = end - start;
 			
-		// Convert the execution time to seconds.
-		float execution_time = (float) duration / 1000000000;
-		
-		System.out.println(execution_time + " sec");
+			// Record the end of the execution time after all threads are complete.
+			long end = System.nanoTime();
+						
+			// Record the total execution time.
+			long duration = end - start;
+				
+			// Convert the execution time to seconds.
+			float execution_time = (float) duration / 1000000000;
+			
+			/*
+			 * Print the number of operations used and the execution time 
+			 * during multithreading.
+			 */
+			System.out.println(i + "\t\t" + execution_time + " sec");
+		}
     }
 	
 	// Function used to populate the concurrent stack by pushing 'x' number of elements.
