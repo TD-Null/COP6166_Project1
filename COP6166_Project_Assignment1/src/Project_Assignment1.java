@@ -357,10 +357,25 @@ class Contiguous<T>
 	void store(int pos, Node<T> elem)
 	{
 		/*
-		 * Insert the element in the Contiguous object's array of 
-		 * elements at the given position.
+		 * If the position given is greater then the current capacity, then
+		 * use the resize() operation to allocate a new Contiguous object,
+		 * then store the given element at the position of the new Contiguous
+		 * object's array of elements.
 		 */
-		this.array[pos] = elem;
+		if(pos >= this.capacity)
+		{
+			this.resize();
+			this.vec.conStorage.store(pos, elem);
+		}
+		
+		else
+		{
+			/*
+			 * Insert the element in the Contiguous object's array of 
+			 * elements at the given position.
+			 */
+			this.array[pos] = elem;
+		}
 	}
 }
 
@@ -1048,13 +1063,13 @@ public class Project_Assignment1
 	public static int inc_operations = 10000;
 	
 	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
-	public static int population = 100;
+	public static int population = 500;
 	
 	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
 	public static boolean segmented_contiguous = true;
 	
 	// Contains the initial capacity to be used when allocating a new Vector object.
-	public static int capacity = 1000;
+	public static int capacity = 1024;
 	
 	// Contains the Vector object to be accessed by multiple threads.
 	public static Vector<Integer> vector = new Vector<Integer>(segmented_contiguous, capacity);
