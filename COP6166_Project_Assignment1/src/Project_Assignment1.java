@@ -6,6 +6,7 @@
 
 import java.io.*;
 import java.util.*;
+import java.util.concurrent.atomic.*;
 import java.lang.*;
 
 /*
@@ -965,21 +966,17 @@ class VectorThread extends Thread
 		// If the number is 0, use a wait-free pop back operation on the vector.
 		if(random == 0)
 		{
-			//System.out.println("Pop " + Project_Assignment1.vector.size);
 			// Pop the Node element at the tail of the vector.
 			Project_Assignment1.vector.WF_popBack();
-			//System.out.println(Project_Assignment1.vector.size);
 		}
 					
 		// If the number is 1, use a wait-free push back operation on the vector.
 		else if(random == 1)
 		{
-			//System.out.println("Push " + Project_Assignment1.vector.size);
 			// Push a Node element from the thread's list of Nodes onto the tail of the vector.
 			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
 			Project_Assignment1.vector.WF_pushBack(n);
 			counter++;
-			//System.out.println(Project_Assignment1.vector.size);
 		}
 	}
 	
@@ -1044,6 +1041,98 @@ class VectorThread extends Thread
 		{
 			// Erase the Node element in the vector at the given position.
 			Project_Assignment1.vector.eraseAt(random_pos);
+		}
+	}
+}
+
+class Cell
+{
+	AtomicLong seq;
+	BitSet bits;
+}
+
+class MRLock
+{
+	Cell[] buffer;
+	long mask;
+	AtomicLong head;
+	AtomicLong tail;
+	
+	MRLock(int size)
+	{
+		this.buffer = new Cell[size];
+		this.mask = size - 1;
+		this.head.set(0);
+		this.tail.set(0);
+		
+		for(int i = 0; i < size; i++)
+		{
+			this.buffer[i].bits.set(0, size - 1);
+			this.buffer[i].seq.set(i);
+		}
+	}
+	
+	long acquire(BitSet r)
+	{
+		Cell c;
+		long pos = 0;
+		
+		while(true)
+		{
+			pos = this.tail.get();
+			c = this.buffer[(int) (pos & this.mask)];
+			long seq = c.seq.get();
+			int dif = (int) seq - (int) pos;
+			
+			if(dif == 0)
+			{
+				if(this.tail.compareAndSet(pos, pos + 1))
+				{
+					break;
+				}
+			}
+		}
+		
+		c.bits = r;
+		c.seq.set(pos + 1);
+		long spin = this.head.get();
+		
+		while(spin != pos)
+		{
+			BitSet result = this.buffer[(int) (spin & this.mask)].bits.get(0, 31);
+			result.and(r);
+			
+			if((pos - this.buffer[(int) (spin & this.mask)].seq.get() > this.mask) 
+					|| result.equals(0))
+			{
+				spin++;
+			}
+		}
+		
+		return pos;
+	}
+	
+	void release(long h)
+	{
+		this.buffer[(int) (h & this.mask)].bits.set(0, (int) this.mask, false);
+		long pos = this.head.get();
+		
+		while(this.buffer[(int) (pos & this.mask)].bits.equals(0))
+		{
+			Cell c = this.buffer[(int) (pos & this.mask)];
+			long seq = c.seq.get();
+			int dif = (int) seq - (int) (pos + 1);
+			
+			if(dif == 0)
+			{
+				if(this.head.compareAndSet(pos, pos + 1))
+				{
+					c.bits.set(0, 32);
+					c.seq.set(pos + this.mask + 1);
+				}
+			}
+			
+			pos = this.head.get();
 		}
 	}
 }
