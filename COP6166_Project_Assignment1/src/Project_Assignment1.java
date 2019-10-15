@@ -407,12 +407,21 @@ class Vector<T>
 	Node<Integer> NotValue_Elem = new Node<Integer>(NotValue);
 	
 	/*
+	 * Contains the multi-resource lock to manage exclusive resources
+	 * on chare-memory in the Vector, which would be the array of elements
+	 * within the internal storage.
+	 */
+	MRLock lockset;
+	int lock_size;
+	
+	/*
 	 * In the constructor, a boolean value is given to signify which type of
 	 * internal storage to use for the vector class. Initialize the internal
 	 * storage with the given capacity and set the current size of the Vector
-	 * to be 0.
+	 * to be 0. Also, initialize the MRLOCK class or the lockset for this
+	 * Vector with the given size for resources.
 	 */
-	Vector(boolean segmented_contiguous, int capacity)
+	Vector(boolean segmented_contiguous, int capacity, int lock_size)
 	{
 		this.segmented_contiguous = segmented_contiguous;
 		
@@ -427,6 +436,9 @@ class Vector<T>
 		}
 		
 		size = 0;
+		
+		lockset = new MRLock(lock_size);
+		this.lock_size = lock_size;
 	}
 	
 	/* 
@@ -523,6 +535,8 @@ class Vector<T>
 	 */
 	Return_Elem<T> WF_popBack()
 	{
+		long handle = TO_acquireLock();
+		
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
@@ -532,6 +546,7 @@ class Vector<T>
 		 */
 		if(pos == 0)
 		{
+			releaseLock(handle);
 			return new Return_Elem<T>(false, null);
 		}
 			
@@ -548,8 +563,13 @@ class Vector<T>
 		{
 			Node<T> pop_Elem = popOp(pos - 1);
 			this.size -= 1;
+			
+			releaseLock(handle);
+			
 			return new Return_Elem<T>(true, pop_Elem);
 		}
+		
+		releaseLock(handle);
 		
 		return new Return_Elem<T>(false, null);
 	}
@@ -561,6 +581,8 @@ class Vector<T>
 	 */
 	int WF_pushBack(Node<T> value)
 	{
+		long handle = TO_acquireLock();
+		
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
@@ -584,17 +606,22 @@ class Vector<T>
 			if(pos == 0)
 			{
 				pushOp(0, value);
+				releaseLock(handle);
+				
 				return 0;
 			}
 			
 			else
 			{
 				pushOp(pos, value);
+				releaseLock(handle);
+				
 				return pos - 1;
 			}
 			
 		}
 		
+		releaseLock(handle);
 		return pos;
 	}
 	
@@ -606,6 +633,8 @@ class Vector<T>
 	 */
 	Return_Elem<T> CAS_popBack()
 	{
+		long handle = TO_acquireLock();
+		
 		// Get the position of the tail in the Vector's memory storage.
 		int pos = this.size - 1;
 		
@@ -615,6 +644,7 @@ class Vector<T>
 		 */
 		if(pos < 0)
 		{
+			releaseLock(handle);
 			return new Return_Elem<T>(false, null);
 		}
 		
@@ -633,10 +663,13 @@ class Vector<T>
 			{
 				this.size -= 1;
 				Node<T> value = popOp(pos);
+				releaseLock(handle);
+				
 				return new Return_Elem<T>(true, value);
 			}
 		}
 			
+		releaseLock(handle);
 		return new Return_Elem<T>(false, null);
 	}
 	
@@ -648,6 +681,8 @@ class Vector<T>
 	 */
 	int CAS_pushBack(Node<T> value)
 	{
+		long handle = TO_acquireLock();
+		
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
 		
@@ -663,10 +698,14 @@ class Vector<T>
 		{
 			this.size += 1;
 			pushOp(pos, value);
+			releaseLock(handle);
+			
 			return pos;
 		}
 		
-		return pos;
+		releaseLock(handle);
+		
+		return 0;
 	}
 	
 	/*
@@ -678,6 +717,8 @@ class Vector<T>
 	 */
 	Return_Elem<T> FAA_popBack()
 	{
+		long handle = TO_acquireLock();
+		
 		/*
 		 * Get the position of the tail of the array of elements
 		 * and decrement the size afterwards.
@@ -696,10 +737,14 @@ class Vector<T>
 		{
 			Node<T> value = this.getSpot(pos);
 			popOp(pos);
+			releaseLock(handle);
+			
 			return new Return_Elem<T>(true, value);
 		}
 		
 		this.size += 1;
+		releaseLock(handle);
+		
 		return new Return_Elem<T>(false, null);
 	}
 	
@@ -712,6 +757,8 @@ class Vector<T>
 	 */
 	int FAA_pushBack(Node<T> value)
 	{
+		long handle = TO_acquireLock();
+		
 		/*
 		 * Get the position after the tail of the array of elements and 
 		 * push the Node value onto the received position. Increment the
@@ -720,6 +767,8 @@ class Vector<T>
 		int pos = this.size;
 		pushOp(pos, value);
 		this.size += 1;
+		
+		releaseLock(handle);
 		
 		return pos;
 	}
@@ -730,6 +779,8 @@ class Vector<T>
 	 */
 	Return_Elem<T> at(int pos)
 	{
+		long handle = RA_acquireLock(pos);
+		
 		/* 
 		 * It is first checked if the position given isn't outside the capacity 
 		 * of the internal storage.If so, then the thread cannot access that 
@@ -746,10 +797,12 @@ class Vector<T>
 			 */
 			if((int) value.val != this.NotValue)
 			{
+				releaseLock(handle);
 				return new Return_Elem<T>(true, value);
 			}
 		}
 		
+		releaseLock(handle);
 		return new Return_Elem<T>(false, null);
 	}
 	
@@ -761,6 +814,8 @@ class Vector<T>
 	 */
 	Return_Elem<T> cwrite(int pos, Node<T> old_Elem, Node<T> new_Elem)
 	{
+		long handle = RA_acquireLock(pos);
+		
 		/* 
 		 * It is first checked if the position given isn't outside the capacity 
 		 * of the internal storage. If so, then the thread cannot access that 
@@ -790,14 +845,18 @@ class Vector<T>
 					conStorage.store(pos, new_Elem);
 				}
 				
+				releaseLock(handle);
 				return new Return_Elem<T>(true, old_Elem);
 			}
 			
 			else
 			{
+				releaseLock(handle);
 				return new Return_Elem<T>(false, value);
 			}
 		}
+		
+		releaseLock(handle);
 		
 		return new Return_Elem<T>(false, null);
 	}
@@ -810,6 +869,8 @@ class Vector<T>
 	 */
 	boolean insertAt(int pos, Node<T> value)
 	{
+		long handle = MP_acquireLock(pos);
+		
 		/*
 		 * First, check which type of memory storage is being used.
 		 * Afterwards, insert the element into the Vector in the internal
@@ -843,6 +904,7 @@ class Vector<T>
 		 */
 		this.size += 1;
 		
+		releaseLock(handle);
 		return true;
 	}
 	
@@ -853,6 +915,8 @@ class Vector<T>
 	 */
 	boolean eraseAt(int pos)
 	{
+		long handle = MP_acquireLock(pos);
+		
 		/*
 		 * First, check if the current size is 0. If so, then there is 
 		 * nothing to erase from the Vector's internal storage.
@@ -891,7 +955,166 @@ class Vector<T>
 		 */
 		this.size -= 1;
 		
+		releaseLock(handle);
+		
 		return true;
+	}
+	
+	long TO_acquireLock()
+	{
+		System.out.println("TO Lock");
+		BitSet tail_resource = new BitSet(this.lock_size);
+		tail_resource.set(0);
+		
+		return lockset.acquire(tail_resource);
+	}
+	
+	long RA_acquireLock(int pos)
+	{
+		System.out.println("RA Lock");
+		BitSet randomAccess_resource = new BitSet(this.lock_size);
+		
+		if(pos == this.size - 1)
+		{
+			randomAccess_resource.set(0);
+		}
+		
+		else
+		{
+			randomAccess_resource.set(pos + 1);
+		}
+		
+		randomAccess_resource.set(0);
+		
+		return lockset.acquire(randomAccess_resource);
+	}
+	
+	long MP_acquireLock(int pos)
+	{
+		System.out.println("MP Lock");
+		BitSet multiplePosition_resource = new BitSet(this.lock_size);
+		multiplePosition_resource.set(0);
+		multiplePosition_resource.set(pos + 1, this.lock_size);
+	
+		return lockset.acquire(multiplePosition_resource);
+	}
+	
+	void releaseLock(long handle)
+	{
+		lockset.release(handle & 0xffffffff);
+	}
+}
+
+/*
+ * 
+ */
+class Cell
+{
+	AtomicLong seq = new AtomicLong();
+	BitSet bits;
+}
+
+/*
+ * Class object that 
+ */
+class MRLock
+{
+	Cell[] buffer;
+	long mask;
+	AtomicLong head = new AtomicLong();
+	AtomicLong tail = new AtomicLong();
+	
+	MRLock(long size)
+	{
+		this.buffer = new Cell[(int) (size & 0xffffffff)];
+		this.mask = (size - 1) & 0xffffffff;
+		this.head.set(0);
+		this.tail.set(0);
+		
+		for(long i = 0; i < size; i++)
+		{
+			int index = (int) (i & 0xffffffff);
+			
+			this.buffer[index] = new Cell();
+			this.buffer[index].bits = new BitSet((int) (size & 0xffffffff));
+			this.buffer[index].bits.set(0, this.buffer[index].bits.size());
+			this.buffer[index].seq.set(index);
+		}
+	}
+	
+	long acquire(BitSet r)
+	{
+		Cell c;
+		long pos = 0;
+		
+		while(true)
+		{
+			pos = this.tail.get() & 0xffffffff;
+			c = this.buffer[(int) (pos & this.mask)];
+			long seq = c.seq.get() & 0xffffffff;
+			int dif = (int) seq - (int) pos;
+			
+			if(dif == 0)
+			{
+				if(this.tail.compareAndSet(pos, (pos + 1) & 0xffffffff))
+				{
+					System.out.println("break");
+					break;
+				}
+			}
+		}
+		
+		this.buffer[(int) (pos & this.mask)].bits = r;
+		this.buffer[(int) (pos & this.mask)].seq.set((pos + 1) & 0xffffffff);
+		long spin = this.head.get() & 0xffffffff;
+		
+		while(spin != pos)
+		{
+			int index = (int) (spin & this.mask);
+			
+			BitSet conflict_check = this.buffer[index].bits.get(0, this.buffer[index].bits.size());
+			conflict_check.and(r);
+			
+			BitSet zero_bits = new BitSet(this.buffer[index].bits.size());
+			zero_bits.set(0, zero_bits.size(), false);
+			
+			if((pos - this.buffer[index].seq.get() > this.mask) 
+					|| conflict_check.equals(zero_bits))
+			{
+				spin++;
+			}
+		}
+		
+		return pos & 0xffffffff;
+	}
+	
+	void release(long h)
+	{
+		System.out.println("releasing lock at " + h);
+		
+		int index = (int) (h & this.mask);
+		this.buffer[index].bits.set(0, this.buffer[index].bits.size(), false);
+		long pos = this.head.get() & 0xffffffff;
+		
+		BitSet zero_bits = new BitSet((int) (this.mask + 1) & 0xffffffff);
+		zero_bits.set(0, zero_bits.size(), false);
+		
+		while(this.buffer[(int) (pos & this.mask)].bits.equals(zero_bits))
+		{
+			long seq = this.buffer[(int) (pos & this.mask)].seq.get() & 0xffffffff;
+			int dif = (int) seq - (int) (pos + 1);
+			
+			if(dif == 0)
+			{
+				if(this.head.compareAndSet(pos, (pos + 1) & 0xffffffff))
+				{
+					this.buffer[(int) (pos & this.mask)].bits.set(0, this.buffer[(int) (pos & this.mask)].bits.size());
+					this.buffer[(int) (pos & this.mask)].seq.set((pos + this.mask + 1) & 0xffffffff);
+				}
+			}
+			
+			pos = this.head.get() & 0xffffffff;
+		}
 	}
 }
 
@@ -1045,102 +1268,10 @@ class VectorThread extends Thread
 	}
 }
 
-class Cell
-{
-	AtomicLong seq;
-	BitSet bits;
-}
-
-class MRLock
-{
-	Cell[] buffer;
-	long mask;
-	AtomicLong head;
-	AtomicLong tail;
-	
-	MRLock(int size)
-	{
-		this.buffer = new Cell[size];
-		this.mask = size - 1;
-		this.head.set(0);
-		this.tail.set(0);
-		
-		for(int i = 0; i < size; i++)
-		{
-			this.buffer[i].bits.set(0, size - 1);
-			this.buffer[i].seq.set(i);
-		}
-	}
-	
-	long acquire(BitSet r)
-	{
-		Cell c;
-		long pos = 0;
-		
-		while(true)
-		{
-			pos = this.tail.get();
-			c = this.buffer[(int) (pos & this.mask)];
-			long seq = c.seq.get();
-			int dif = (int) seq - (int) pos;
-			
-			if(dif == 0)
-			{
-				if(this.tail.compareAndSet(pos, pos + 1))
-				{
-					break;
-				}
-			}
-		}
-		
-		c.bits = r;
-		c.seq.set(pos + 1);
-		long spin = this.head.get();
-		
-		while(spin != pos)
-		{
-			BitSet result = this.buffer[(int) (spin & this.mask)].bits.get(0, 31);
-			result.and(r);
-			
-			if((pos - this.buffer[(int) (spin & this.mask)].seq.get() > this.mask) 
-					|| result.equals(0))
-			{
-				spin++;
-			}
-		}
-		
-		return pos;
-	}
-	
-	void release(long h)
-	{
-		this.buffer[(int) (h & this.mask)].bits.set(0, (int) this.mask, false);
-		long pos = this.head.get();
-		
-		while(this.buffer[(int) (pos & this.mask)].bits.equals(0))
-		{
-			Cell c = this.buffer[(int) (pos & this.mask)];
-			long seq = c.seq.get();
-			int dif = (int) seq - (int) (pos + 1);
-			
-			if(dif == 0)
-			{
-				if(this.head.compareAndSet(pos, pos + 1))
-				{
-					c.bits.set(0, 32);
-					c.seq.set(pos + this.mask + 1);
-				}
-			}
-			
-			pos = this.head.get();
-		}
-	}
-}
-
 public class Project_Assignment1 
 {
 	// Contains the numbers of threads to use to test the wait-free vector.
-	public static int num_threads = 1;
+	public static int num_threads = 4;
 	
 	// Contains a list of Nodes pre-allocated for each thread using during multithreading when accessing the stack.
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
@@ -1161,7 +1292,7 @@ public class Project_Assignment1
 	public static int capacity = 1024;
 	
 	// Contains the Vector object to be accessed by multiple threads.
-	public static Vector<Integer> vector = new Vector<Integer>(segmented_contiguous, capacity);
+	public static Vector<Integer> vector;
 	
 	public static void main (String[] args)
     {
@@ -1183,7 +1314,7 @@ public class Project_Assignment1
 		for(int i = inc_operations; i <= max_operations; i += inc_operations)
 		{
 			// Declare a new Vector object for each test case.
-			vector = new Vector<Integer>(segmented_contiguous, capacity);
+			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * num_threads));
 			
 			// Populate the vector with elements.
 			populate(population);
