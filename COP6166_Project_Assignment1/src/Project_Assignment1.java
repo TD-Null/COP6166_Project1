@@ -1381,7 +1381,7 @@ public class Project_Assignment1
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 10000;
+	public static int max_operations = 12000;
 	
 	// Contains the incremented number of operations for each test case.
 	public static int inc_operations = 1000;
