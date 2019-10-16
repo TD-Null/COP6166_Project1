@@ -1027,7 +1027,8 @@ class MRLock
 	MRLock(long size)
 	{
 		this.buffer = new Cell[(int) (size & 0xffffffff)];
-		this.mask = (size - 1) & 0xffffffff;
+		//this.mask = (size - 1) & 0xffffffff;
+		this.mask = size & 0xffffffff;
 		this.head.set(0);
 		this.tail.set(0);
 		
@@ -1050,27 +1051,32 @@ class MRLock
 		while(true)
 		{
 			pos = this.tail.get() & 0xffffffff;
-			c = this.buffer[(int) (pos & this.mask)];
+			//System.out.println(pos);
+			//System.out.println(this.mask);
+			//System.out.println((int) pos % this.mask);
+			c = this.buffer[(int) (pos % this.mask)];
 			long seq = c.seq.get() & 0xffffffff;
+			//System.out.println(seq);
 			int dif = (int) seq - (int) pos;
 			
 			if(dif == 0)
 			{
 				if(this.tail.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
+					System.out.println(pos + " " + seq);
 					System.out.println("break");
 					break;
 				}
 			}
 		}
-		
-		this.buffer[(int) (pos & this.mask)].bits = r;
-		this.buffer[(int) (pos & this.mask)].seq.set((pos + 1) & 0xffffffff);
+
+		this.buffer[(int) (pos % this.mask)].bits = r;
+		this.buffer[(int) (pos % this.mask)].seq.set((pos + 1) & 0xffffffff);
 		long spin = this.head.get() & 0xffffffff;
 		
 		while(spin != pos)
 		{
-			int index = (int) (spin & this.mask);
+			int index = (int) (spin % this.mask);
 			
 			BitSet conflict_check = this.buffer[index].bits.get(0, this.buffer[index].bits.size());
 			conflict_check.and(r);
@@ -1092,24 +1098,25 @@ class MRLock
 	{
 		System.out.println("releasing lock at " + h);
 		
-		int index = (int) (h & this.mask);
-		this.buffer[index].bits.set(0, this.buffer[index].bits.size(), false);
+		this.buffer[(int) (h % this.mask)].bits.set(0, this.buffer[(int) (h % this.mask)].bits.size(), false);
 		long pos = this.head.get() & 0xffffffff;
 		
 		BitSet zero_bits = new BitSet((int) (this.mask + 1) & 0xffffffff);
 		zero_bits.set(0, zero_bits.size(), false);
 		
-		while(this.buffer[(int) (pos & this.mask)].bits.equals(zero_bits))
+		while(this.buffer[(int) (pos % this.mask)].bits.equals(zero_bits))
 		{
-			long seq = this.buffer[(int) (pos & this.mask)].seq.get() & 0xffffffff;
+			long seq = this.buffer[(int) (pos % this.mask)].seq.get() & 0xffffffff;
 			int dif = (int) seq - (int) (pos + 1);
 			
 			if(dif == 0)
 			{
 				if(this.head.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
-					this.buffer[(int) (pos & this.mask)].bits.set(0, this.buffer[(int) (pos & this.mask)].bits.size());
-					this.buffer[(int) (pos & this.mask)].seq.set((pos + this.mask + 1) & 0xffffffff);
+					//System.out.println("head pos " + pos + ", seq = " + seq);
+					this.buffer[(int) (pos % this.mask)].bits.set(0, this.buffer[(int) (pos % this.mask)].bits.size());
+					this.buffer[(int) (pos % this.mask)].seq.set((pos + this.mask) & 0xffffffff);
+					//System.out.println("head pos " + pos + ", seq = " + this.buffer[(int) (pos & this.mask)].seq.get());
 				}
 			}
 			
