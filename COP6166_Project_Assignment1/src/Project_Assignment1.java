@@ -984,18 +984,22 @@ class Vector<T>
 			randomAccess_resource.set(pos + 1);
 		}
 		
-		randomAccess_resource.set(0);
-		
 		return lockset.acquire(randomAccess_resource);
 	}
 	
 	long MP_acquireLock(int pos)
 	{
 		System.out.println("MP Lock");
+		
 		BitSet multiplePosition_resource = new BitSet(this.lock_size);
+				
 		multiplePosition_resource.set(0);
-		multiplePosition_resource.set(pos + 1, this.lock_size);
-	
+		
+		if(pos != this.size - 1)
+		{
+			multiplePosition_resource.set(pos + 1, this.lock_size);
+		}
+		
 		return lockset.acquire(multiplePosition_resource);
 	}
 	
@@ -1051,7 +1055,7 @@ class MRLock
 		while(true)
 		{
 			pos = this.tail.get() & 0xffffffff;
-			//System.out.println(pos);
+			//System.out.println("acquire " + pos);
 			//System.out.println(this.mask);
 			//System.out.println((int) pos % this.mask);
 			c = this.buffer[(int) (pos % this.mask)];
@@ -1063,8 +1067,8 @@ class MRLock
 			{
 				if(this.tail.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
-					System.out.println(pos + " " + seq);
-					System.out.println("break");
+					//System.out.println(pos + " " + seq);
+					//System.out.println("break");
 					break;
 				}
 			}
@@ -1081,15 +1085,23 @@ class MRLock
 			BitSet conflict_check = this.buffer[index].bits.get(0, this.buffer[index].bits.size());
 			conflict_check.and(r);
 			
+			System.out.println(conflict_check.toString());
+			
 			BitSet zero_bits = new BitSet(this.buffer[index].bits.size());
 			zero_bits.set(0, zero_bits.size(), false);
+			
+			System.out.println(conflict_check.equals(zero_bits));
 			
 			if((pos - this.buffer[index].seq.get() > this.mask) 
 					|| conflict_check.equals(zero_bits))
 			{
 				spin++;
 			}
+			
+			//System.out.println("spin");
 		}
+		
+		System.out.println("acquiring lock at " + pos);
 		
 		return pos & 0xffffffff;
 	}
@@ -1101,7 +1113,7 @@ class MRLock
 		this.buffer[(int) (h % this.mask)].bits.set(0, this.buffer[(int) (h % this.mask)].bits.size(), false);
 		long pos = this.head.get() & 0xffffffff;
 		
-		BitSet zero_bits = new BitSet((int) (this.mask + 1) & 0xffffffff);
+		BitSet zero_bits = new BitSet((int) (this.mask) & 0xffffffff);
 		zero_bits.set(0, zero_bits.size(), false);
 		
 		while(this.buffer[(int) (pos % this.mask)].bits.equals(zero_bits))
@@ -1113,10 +1125,8 @@ class MRLock
 			{
 				if(this.head.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
-					//System.out.println("head pos " + pos + ", seq = " + seq);
 					this.buffer[(int) (pos % this.mask)].bits.set(0, this.buffer[(int) (pos % this.mask)].bits.size());
 					this.buffer[(int) (pos % this.mask)].seq.set((pos + this.mask) & 0xffffffff);
-					//System.out.println("head pos " + pos + ", seq = " + this.buffer[(int) (pos & this.mask)].seq.get());
 				}
 			}
 			
