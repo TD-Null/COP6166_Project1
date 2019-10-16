@@ -1055,20 +1055,14 @@ class MRLock
 		while(true)
 		{
 			pos = this.tail.get() & 0xffffffff;
-			//System.out.println("acquire " + pos);
-			//System.out.println(this.mask);
-			//System.out.println((int) pos % this.mask);
 			c = this.buffer[(int) (pos % this.mask)];
 			long seq = c.seq.get() & 0xffffffff;
-			//System.out.println(seq);
 			int dif = (int) seq - (int) pos;
 			
 			if(dif == 0)
 			{
 				if(this.tail.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
-					//System.out.println(pos + " " + seq);
-					//System.out.println("break");
 					break;
 				}
 			}
@@ -1080,25 +1074,25 @@ class MRLock
 		
 		while(spin != pos)
 		{
+			System.out.println("Trying to acquire lock at " + pos);
+			
 			int index = (int) (spin % this.mask);
+			
+			long dequeue_check = (pos - this.buffer[index].seq.get()) & 0xffffffff;
 			
 			BitSet conflict_check = this.buffer[index].bits.get(0, this.buffer[index].bits.size());
 			conflict_check.and(r);
 			
-			System.out.println(conflict_check.toString());
-			
 			BitSet zero_bits = new BitSet(this.buffer[index].bits.size());
 			zero_bits.set(0, zero_bits.size(), false);
 			
+			System.out.println(pos - this.buffer[index].seq.get());
 			System.out.println(conflict_check.equals(zero_bits));
 			
-			if((pos - this.buffer[index].seq.get() > this.mask) 
-					|| conflict_check.equals(zero_bits))
+			if(dequeue_check > this.mask || conflict_check.equals(zero_bits))
 			{
 				spin++;
 			}
-			
-			//System.out.println("spin");
 		}
 		
 		System.out.println("acquiring lock at " + pos);
