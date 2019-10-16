@@ -960,18 +960,32 @@ class Vector<T>
 		return true;
 	}
 	
+	/*
+	 * Function use to acquire a lock for a tail operation, which would
+	 * be either a pop_back or push_back operation on the Vector's internal
+	 * storage. Create a BitSet representing the resources being used and 
+	 * set the first bit as 1, indicating that tail resource is being used.
+	 */
 	long TO_acquireLock()
 	{
-		System.out.println("TO Lock");
 		BitSet tail_resource = new BitSet(this.lock_size);
 		tail_resource.set(0);
 		
+		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(tail_resource);
 	}
 	
+	/*
+	 * Function use to acquire a lock for a random access operation, which would
+	 * be either an at() or conditional write operation on the Vector's internal
+	 * storage. Create a BitSet representing the resources being used. If the
+	 * position of the random access operation is at the tail, set the first bit
+	 * as 1, indicating the tail source is being used. If not, then set the bit 
+	 * of the given position added by 1 to indicate that the resource of the 
+	 * position within the Vector is being used.
+	 */
 	long RA_acquireLock(int pos)
 	{
-		System.out.println("RA Lock");
 		BitSet randomAccess_resource = new BitSet(this.lock_size);
 		
 		if(pos == this.size - 1)
@@ -984,13 +998,23 @@ class Vector<T>
 			randomAccess_resource.set(pos + 1);
 		}
 		
+		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(randomAccess_resource);
 	}
 	
+	/*
+	 * Function use to acquire a lock for a multi-position operation, which would
+	 * be either an insertAt() or eraseAt() operation on the Vector's internal
+	 * storage. Create a BitSet representing the resources being used. First, set 
+	 * the first bit as 1, indicating the tail source is being used. If the position 
+	 * of the multi-position operation is not at the tail, then set bits from the
+	 * given position added by 1 to the end of the BitSet, which would be the
+	 * size of the lockset of MRLOCK, indicating that the resources of those
+	 * positions are being used as the elements are being shifted from the given
+	 * position to the tail.
+	 */
 	long MP_acquireLock(int pos)
 	{
-		System.out.println("MP Lock");
-		
 		BitSet multiplePosition_resource = new BitSet(this.lock_size);
 				
 		multiplePosition_resource.set(0);
@@ -1000,9 +1024,11 @@ class Vector<T>
 			multiplePosition_resource.set(pos + 1, this.lock_size);
 		}
 		
+		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(multiplePosition_resource);
 	}
 	
+	// Releases the lock within the MRLOCK set given the handle within the buffer.
 	void releaseLock(long handle)
 	{
 		lockset.release(handle & 0xffffffff);
@@ -1010,7 +1036,10 @@ class Vector<T>
 }
 
 /*
- * 
+ * A Cell class that is used as element within the buffer
+ * of the MRLOCK object. This contains the sequence numbers
+ * and the BitSet representing the resources being used in
+ * a request.
  */
 class Cell
 {
@@ -1019,19 +1048,51 @@ class Cell
 }
 
 /*
- * Class object that 
+ * Class object that represents the MRLOCK algorithm. Its
+ * fields contains a buffer contains requests in the form
+ * of Cell objects containing sequence numbers and the
+ * resources needed to be used in the form of a BitSet,
+ * a mask used to get the positions, or indices, within
+ * the buffer, and an Atomic Long variable representing
+ * the head and tail of the requests within the buffer.
+ * 
+ * Note:
+ * Originally this algorithm uses an unsigned int32 as
+ * its type for the mask, head, and tail variables. Java
+ * doesn't use unsigned values. The solution to this is to
+ * use a type of variable that encompasses a wider range of
+ * values, in this case for unsigned int32, being 0 to 2^32-1
+ * values. To do this, long variables are used, while also
+ * taking into considering the bounds of the unsigned int32
+ * in terms of values can be used. When the value of a long
+ * variables bypasses the bounds, then it should wrap around
+ * from 0 to 2^32 - 1. This is done by checking if the value
+ * is below 0 that it wraps around the maximum bound of an
+ * unsigned int32 and when it exceeds the maximum bound, then
+ * "cross" out bits outside the maximum bound by using an 
+ * AND, or &, operation with 0xffffffff, which will "cross"
+ * out the bits outside of the maximum bound.
  */
 class MRLock
 {
+	// Fields used for requests within the MRLOCK.
 	Cell[] buffer;
 	long mask;
 	AtomicLong head = new AtomicLong();
 	AtomicLong tail = new AtomicLong();
 	
+	/*
+	 * Within the constructor, given the size, or number of resources
+	 * in use, initialize the size of the buffer's array of Cell objects
+	 * and the mask as the size given. Set both the head and tail of
+	 * the buffer queue as 0, as no requests are being sent yet.
+	 * Initialize all the Cell objects with a new BitSet with the given
+	 * size and all bits set to 1 and with a sequence number corresponding
+	 * to the index it is within the buffer.
+	 */
 	MRLock(long size)
 	{
 		this.buffer = new Cell[(int) (size & 0xffffffff)];
-		//this.mask = (size - 1) & 0xffffffff;
 		this.mask = size & 0xffffffff;
 		this.head.set(0);
 		this.tail.set(0);
@@ -1047,11 +1108,20 @@ class MRLock
 		}
 	}
 	
+	/*
+	 * Function within the MRLOCK that acquires a lock given the resources that
+	 * need to be used within a request in the form of a BitSet.
+	 */
 	long acquire(BitSet r)
 	{
 		Cell c;
 		long pos = 0;
 		
+		/*
+		 * Enqueue the resource request at the tail of the buffer. If the
+		 * queue is currently full, then wait at the end until a spot within
+		 * the queue becomes available.
+		 */
 		while(true)
 		{
 			pos = this.tail.get() & 0xffffffff;
@@ -1067,49 +1137,70 @@ class MRLock
 				}
 			}
 		}
-
+		
+		// Set the request within the buffer with its resources and sequence number.
 		this.buffer[(int) (pos % this.mask)].bits = r;
 		this.buffer[(int) (pos % this.mask)].seq.set((pos + 1) & 0xffffffff);
+		
+		// Start the spin at the head of the locks.
 		long spin = this.head.get() & 0xffffffff;
 		
+		/*
+		 * Within the loop, spin on all previous locks to check if the request can
+		 * be placed within the buffer.
+		 */
 		while(spin != pos)
 		{
-			System.out.println("Trying to acquire lock at " + pos);
-			
 			int index = (int) (spin % this.mask);
 			
-			long dequeue_check = (pos - this.buffer[index].seq.get()) & 0xffffffff;
+			// Contains the dequeue check of a certain request.
+			long dequeue_check = pos - this.buffer[index].seq.get() & 0xffffffff;
 			
+			if(dequeue_check < 0)
+			{
+				dequeue_check = (long) (Math.pow(2, 32) - 1 + dequeue_check) & 0xffffffff;
+			}
+			
+			// Contains the conflict check between requests.
 			BitSet conflict_check = this.buffer[index].bits.get(0, this.buffer[index].bits.size());
 			conflict_check.and(r);
 			
 			BitSet zero_bits = new BitSet(this.buffer[index].bits.size());
 			zero_bits.set(0, zero_bits.size(), false);
 			
-			System.out.println(pos - this.buffer[index].seq.get());
-			System.out.println(conflict_check.equals(zero_bits));
-			
-			if(dequeue_check > this.mask || conflict_check.equals(zero_bits))
+			/*
+			 * Starting from the head and moving towards the position, spin on a request
+			 * that uses the same resources as the currently given request's resources that
+			 * need to be used. If the request observed has been dequeued or there's no conflict
+			 * between the obesrved request and the given request's resources, then increment
+			 * the spin and check for another request until the position is reached.
+			 */
+			if(dequeue_check > (this.mask - 1) || conflict_check.equals(zero_bits))
 			{
 				spin++;
 			}
 		}
 		
-		System.out.println("acquiring lock at " + pos);
-		
+		// Return the lock handle as the request has acquired a lock.
 		return pos & 0xffffffff;
 	}
 	
+	/*
+	 * Function within the MRLOCK that releases a lock given the lock handle that
+	 * represents the position within the buffer array of Cell objects were the
+	 * request is placed.
+	 */
 	void release(long h)
 	{
-		System.out.println("releasing lock at " + h);
-		
+		// Release the lock by setting all of its bits to 0.
 		this.buffer[(int) (h % this.mask)].bits.set(0, this.buffer[(int) (h % this.mask)].bits.size(), false);
+		
 		long pos = this.head.get() & 0xffffffff;
 		
 		BitSet zero_bits = new BitSet((int) (this.mask) & 0xffffffff);
 		zero_bits.set(0, zero_bits.size(), false);
 		
+		// Dequeue all Cell objects, or locks, that have been released.
 		while(this.buffer[(int) (pos % this.mask)].bits.equals(zero_bits))
 		{
 			long seq = this.buffer[(int) (pos % this.mask)].seq.get() & 0xffffffff;
@@ -1119,11 +1210,13 @@ class MRLock
 			{
 				if(this.head.compareAndSet(pos, (pos + 1) & 0xffffffff))
 				{
+					// Dequeue the request by setting its sequence number higher than the mask of the MRLOCK.
 					this.buffer[(int) (pos % this.mask)].bits.set(0, this.buffer[(int) (pos % this.mask)].bits.size());
 					this.buffer[(int) (pos % this.mask)].seq.set((pos + this.mask) & 0xffffffff);
 				}
 			}
 			
+			// Get the next Cell object, or request.
 			pos = this.head.get() & 0xffffffff;
 		}
 	}
@@ -1288,16 +1381,16 @@ public class Project_Assignment1
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 150000;
+	public static int max_operations = 10000;
 	
 	// Contains the incremented number of operations for each test case.
-	public static int inc_operations = 10000;
+	public static int inc_operations = 1000;
 	
 	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
 	public static int population = 500;
 	
 	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
-	public static boolean segmented_contiguous = true;
+	public static boolean segmented_contiguous = false;
 	
 	// Contains the initial capacity to be used when allocating a new Vector object.
 	public static int capacity = 1024;
@@ -1319,13 +1412,82 @@ public class Project_Assignment1
 		
 		populateThreads(num_threads);
 		
+		/*
+		 * First, test the Segmented Memory model for the internal storage of the Vector object
+		 * and test the model when being accessed by multiple threads using different numbers of
+		 * operations.
+		 */
+		System.out.println("Segmented Memory Model - ");
 		System.out.println("# Operations:\tExecution time:");
 		
 		// For each test case, give different numbers of operations to use for each thread.
 		for(int i = inc_operations; i <= max_operations; i += inc_operations)
 		{
 			// Declare a new Vector object for each test case.
-			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * num_threads));
+			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * 4));
+			
+			// Populate the vector with elements.
+			populate(population);
+			
+			// Contains the threads that will be used for multithreading
+			Thread threads[] = new Thread[num_threads];
+			
+			// Record the start of the execution time prior to spawning the threads.
+			long start = System.nanoTime();
+			
+			// Spawn 4 concurrent threads accessing the stack.
+			for(int j = 0; j < num_threads; j++)
+			{
+				threads[j] = new Thread(new VectorThread(j, i));
+				threads[j].start();
+			}
+			
+			// Join the threads.
+			for(int j = 0; j < num_threads; j++)
+			{
+				try
+				{
+					threads[j].join();
+				}
+				
+				catch (Exception ex) 
+				{
+					System.out.println("Failed to join thread.");
+				}
+			}
+			
+			// Record the end of the execution time after all threads are complete.
+			long end = System.nanoTime();
+						
+			// Record the total execution time.
+			long duration = end - start;
+				
+			// Convert the execution time to seconds.
+			float execution_time = (float) duration / 1000000000;
+			
+			/*
+			 * Print the number of operations used and the execution time 
+			 * during multithreading.
+			 */
+			System.out.println(i + "\t\t" + execution_time + " sec");
+		}
+		
+		/*
+		 * Switch the internal storage model for the Vector object to a Contiguous Memory Model
+		 * and test the model when being accessed by multiple threads using different numbers of
+		 * operations.
+		 */
+		segmented_contiguous = true;
+		
+		System.out.println("");
+		System.out.println("Contiguous Memory Model - ");
+		System.out.println("# Operations:\tExecution time:");
+		
+		// For each test case, give different numbers of operations to use for each thread.
+		for(int i = inc_operations; i <= max_operations; i += inc_operations)
+		{
+			// Declare a new Vector object for each test case.
+			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * 4));
 			
 			// Populate the vector with elements.
 			populate(population);
