@@ -1375,13 +1375,13 @@ class VectorThread extends Thread
 public class Project_Assignment1 
 {
 	// Contains the numbers of threads to use to test the wait-free vector.
-	public static int num_threads = 4;
+	public static int num_threads = 32;
 	
 	// Contains a list of Nodes pre-allocated for each thread using during multithreading when accessing the stack.
 	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 12000;
+	public static int max_operations = 1000;
 	
 	// Contains the incremented number of operations for each test case.
 	public static int inc_operations = 1000;
