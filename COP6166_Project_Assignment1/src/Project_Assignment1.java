@@ -1,6 +1,6 @@
 /*
  * Timothy Deligero, Viktor Orlorvic, Cody Dailidonis
- * Course: CO6616 (Multicore Programming)
+ * Course: COP6616 (Multicore Programming)
  * Project Assignment #1
  */
 
