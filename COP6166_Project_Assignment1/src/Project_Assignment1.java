@@ -382,7 +382,7 @@ class Contiguous<T>
 
 /*
  * A wait-free vector class containing an internal storage, being either segmented
- * or contiguous, the current size, and utilizes tail operations, random access 
+ * or contiguous, the current size, and utilizes tail operations, random access
  * operations, and multi-position operations.
  */
 class Vector<T>
@@ -396,7 +396,7 @@ class Vector<T>
 	Contiguous<T> conStorage;
 	int size;
 	boolean segmented_contiguous;
-	
+
 	/*
 	 * Contains the values and elements for the NotCopied and NotValue
 	 * to be used for the operations of the Vector class.
@@ -405,7 +405,7 @@ class Vector<T>
 	int NotValue = Integer.MAX_VALUE;
 	Node<Integer> NotCopied_Elem = new Node<Integer>(NotCopied);
 	Node<Integer> NotValue_Elem = new Node<Integer>(NotValue);
-	
+
 	/*
 	 * Contains the multi-resource lock to manage exclusive resources
 	 * on chare-memory in the Vector, which would be the array of elements
@@ -413,7 +413,7 @@ class Vector<T>
 	 */
 	MRLock lockset;
 	int lock_size;
-	
+
 	/*
 	 * In the constructor, a boolean value is given to signify which type of
 	 * internal storage to use for the vector class. Initialize the internal
@@ -424,80 +424,80 @@ class Vector<T>
 	Vector(boolean segmented_contiguous, int capacity, int lock_size)
 	{
 		this.segmented_contiguous = segmented_contiguous;
-		
+
 		if(!segmented_contiguous)
 		{
 			segStorage = new Segmented<T>(capacity);
 		}
-		
+
 		else
 		{
 			conStorage = new Contiguous<T>(this, null, capacity);
 		}
-		
+
 		size = 0;
-		
+
 		lockset = new MRLock(lock_size);
 		this.lock_size = lock_size;
 	}
-	
-	/* 
-	 * Function that uses a pop operation on the Vectors' internal storage 
+
+	/*
+	 * Function that uses a pop operation on the Vectors' internal storage
 	 * given a position.
 	 */
 	@SuppressWarnings("unchecked")
 	Node<T> popOp(int pos)
 	{
 		/*
-		 * Get the popped element first at the tail of the Vector's 
+		 * Get the popped element first at the tail of the Vector's
 		 * internal storage or array of elements.
 		 */
 		Node<T> pop_Elem = this.getSpot(pos);
-		
+
 		/*
-		 * First, check which type of internal storage is being used for this 
-		 * Vector. Then, store a NotValue element at the tail of the Vector's 
+		 * First, check which type of internal storage is being used for this
+		 * Vector. Then, store a NotValue element at the tail of the Vector's
 		 * internal storage or array of elements.
 		 */
 		if(!segmented_contiguous)
 		{
 			segStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
-		
+
 		else
 		{
 			conStorage.store(pos, (Node<T>) NotValue_Elem);
 		}
-		
+
 		//System.out.println(pop_Elem.val);
 		//System.out.println(this.getSpot(pos).val);
-		
+
 		// Return the popped element from the vector.
 		return pop_Elem;
 	}
-	
-	/* 
-	 * Function that uses a push operation on the Vectors' internal storage 
+
+	/*
+	 * Function that uses a push operation on the Vectors' internal storage
 	 * given a position a new Node element to push into the memory.
 	 */
 	void pushOp(int pos, Node<T> new_Node)
 	{
 		/*
-		 * First, check which type of internal storage is being used for this 
-		 * Vector. Then, store the new Node element at the tail of the Vector's 
+		 * First, check which type of internal storage is being used for this
+		 * Vector. Then, store the new Node element at the tail of the Vector's
 		 * internal storage or array of elements.
 		 */
 		if(!segmented_contiguous)
 		{
 			segStorage.store(pos, new_Node);
 		}
-		
+
 		else
 		{
 			conStorage.store(pos, new_Node);
 		}
 	}
-	
+
 	/*
 	 * Function within the Vector class to get the element of the given
 	 * position within the internal storage. First, it is checked which
@@ -512,10 +512,10 @@ class Vector<T>
 
 		return conStorage.getSpot(pos);
 	}
-	
+
 	/*
 	 * Function within the Vector class to get the capacity of the Vector's
-	 * internal storage. First, it is checked which type of storage is used 
+	 * internal storage. First, it is checked which type of storage is used
 	 * before getting the capacity.
 	 */
 	int getCapacity()
@@ -527,7 +527,7 @@ class Vector<T>
 
 		return conStorage.capacity;
 	}
-	
+
 	/*
 	 * Algorithm 6: A wait-free pop back operation that pops the
 	 * element from the tail of the Vector's internal storage or
@@ -536,10 +536,10 @@ class Vector<T>
 	Return_Elem<T> WF_popBack()
 	{
 		long handle = TO_acquireLock();
-		
+
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
-		
+
 		/*
 		 * If the position isn't within the bounds of Vector's memory
 		 * storage, then return false and a NULL value.
@@ -549,10 +549,10 @@ class Vector<T>
 			releaseLock(handle);
 			return new Return_Elem<T>(false, null);
 		}
-			
+
 		// Get the Node value at the given position.
 		Node<T> spot = this.getSpot(pos - 1);
-			
+
 		/*
 		 * If the current spot is a NotValue, then pop the element
 		 * at the tail of the Vector's memory storage, decrement the
@@ -563,17 +563,17 @@ class Vector<T>
 		{
 			Node<T> pop_Elem = popOp(pos - 1);
 			this.size -= 1;
-			
+
 			releaseLock(handle);
-			
+
 			return new Return_Elem<T>(true, pop_Elem);
 		}
-		
+
 		releaseLock(handle);
-		
+
 		return new Return_Elem<T>(false, null);
 	}
-	
+
 	/*
 	 * Algorithm 9: A wait-free push back operation that pushes the
 	 * given Node value onto the tail of the Vector's internal storage or
@@ -582,10 +582,10 @@ class Vector<T>
 	int WF_pushBack(Node<T> value)
 	{
 		long handle = TO_acquireLock();
-		
+
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
-		
+
 		// Get the Node value at the given position.
 		Node<T> spot = this.getSpot(pos);
 		//System.out.println(spot.val);
@@ -597,7 +597,7 @@ class Vector<T>
 		if((int) spot.val == this.NotValue)
 		{
 			this.size += 1;
-			
+
 			/*
 			 * If the position is 0, or the Vector is currently empty with
 			 * a size of 0, then push the Node value at position 0. Else,
@@ -607,24 +607,24 @@ class Vector<T>
 			{
 				pushOp(0, value);
 				releaseLock(handle);
-				
+
 				return 0;
 			}
-			
+
 			else
 			{
 				pushOp(pos, value);
 				releaseLock(handle);
-				
+
 				return pos - 1;
 			}
-			
+
 		}
-		
+
 		releaseLock(handle);
 		return pos;
 	}
-	
+
 	/*
 	 * Algorithm 11: Compare and Set pop back operation that compares
 	 * the value at the tail of the Vector's internal storage, and if
@@ -634,10 +634,10 @@ class Vector<T>
 	Return_Elem<T> CAS_popBack()
 	{
 		long handle = TO_acquireLock();
-		
+
 		// Get the position of the tail in the Vector's memory storage.
 		int pos = this.size - 1;
-		
+
 		/*
 		 * If the position isn't within the bounds of Vector's memory
 		 * storage, then return false and a NULL value.
@@ -647,9 +647,9 @@ class Vector<T>
 			releaseLock(handle);
 			return new Return_Elem<T>(false, null);
 		}
-		
+
 		/*
-		 * Get the Node value at the given position and if it is a 
+		 * Get the Node value at the given position and if it is a
 		 * NotValue, then decrement the size, pop the element from
 		 * the Vectors's internal storage, and return true and the
 		 * value of the popped element. If not, then return false
@@ -658,21 +658,21 @@ class Vector<T>
 		else
 		{
 			Node<T> spot = this.getSpot(pos);
-				
+
 			if((int) spot.val != this.NotValue)
 			{
 				this.size -= 1;
 				Node<T> value = popOp(pos);
 				releaseLock(handle);
-				
+
 				return new Return_Elem<T>(true, value);
 			}
 		}
-			
+
 		releaseLock(handle);
 		return new Return_Elem<T>(false, null);
 	}
-	
+
 	/*
 	 * Algorithm 12: Compare and Set push back operation that compares
 	 * the value at the tail of the Vector's internal storage, and if
@@ -682,13 +682,13 @@ class Vector<T>
 	int CAS_pushBack(Node<T> value)
 	{
 		long handle = TO_acquireLock();
-		
+
 		// Get the position after the tail in the Vector's memory storage.
 		int pos = this.size;
-		
+
 		// Get the Node value at the given position.
 		Node<T> spot = this.getSpot(pos);
-		
+
 		/*
 		 * If the Node value at the spot is a NotValue, then increment the
 		 * size and push the given Node value onto the Vector's internal
@@ -699,18 +699,18 @@ class Vector<T>
 			this.size += 1;
 			pushOp(pos, value);
 			releaseLock(handle);
-			
+
 			return pos;
 		}
-		
+
 		releaseLock(handle);
-		
+
 		return 0;
 	}
-	
+
 	/*
 	 * Algorithm 13: Fetch-and-Add pop back operation that pops
-	 * the Node element value in the Vector's internal storage at 
+	 * the Node element value in the Vector's internal storage at
 	 * the tail of the array of elements. This is done by fetching
 	 * the position and popping the Node value at the position then
 	 * decrementing the overall size of the Vector.
@@ -718,14 +718,14 @@ class Vector<T>
 	Return_Elem<T> FAA_popBack()
 	{
 		long handle = TO_acquireLock();
-		
+
 		/*
 		 * Get the position of the tail of the array of elements
 		 * and decrement the size afterwards.
 		 */
 		int pos = this.size - 1;
 		this.size -= 1;
-		
+
 		/*
 		 * If the given position is within the bounds of the Vector's
 		 * internal storage of elements, then pop the element from the
@@ -738,16 +738,16 @@ class Vector<T>
 			Node<T> value = this.getSpot(pos);
 			popOp(pos);
 			releaseLock(handle);
-			
+
 			return new Return_Elem<T>(true, value);
 		}
-		
+
 		this.size += 1;
 		releaseLock(handle);
-		
+
 		return new Return_Elem<T>(false, null);
 	}
-	
+
 	/*
 	 * Algorithm 14: Fetch-and-Add push back operation that pushes
 	 * the given Node element value into the Vector's internal storage
@@ -758,21 +758,21 @@ class Vector<T>
 	int FAA_pushBack(Node<T> value)
 	{
 		long handle = TO_acquireLock();
-		
+
 		/*
-		 * Get the position after the tail of the array of elements and 
+		 * Get the position after the tail of the array of elements and
 		 * push the Node value onto the received position. Increment the
 		 * size afterwards.
 		 */
 		int pos = this.size;
 		pushOp(pos, value);
 		this.size += 1;
-		
+
 		releaseLock(handle);
-		
+
 		return pos;
 	}
-	
+
 	/*
 	 * Algorithm 15: Function that returns an element at the given position
 	 * of the internal storage.
@@ -780,19 +780,19 @@ class Vector<T>
 	Return_Elem<T> at(int pos)
 	{
 		long handle = RA_acquireLock(pos);
-		
-		/* 
-		 * It is first checked if the position given isn't outside the capacity 
-		 * of the internal storage.If so, then the thread cannot access that 
+
+		/*
+		 * It is first checked if the position given isn't outside the capacity
+		 * of the internal storage.If so, then the thread cannot access that
 		 * position of the Vector, so return false and a NULL value.
 		 */
 		if(pos <= this.getCapacity())
 		{
 			// Get the Node element at the given position.
 			Node<T> value = this.getSpot(pos);
-			
-			/* 
-			 * If the value received is not equal to NotValue, then return true 
+
+			/*
+			 * If the value received is not equal to NotValue, then return true
 			 * and the value of the element. Else, return false and NULL.
 			 */
 			if((int) value.val != this.NotValue)
@@ -801,11 +801,11 @@ class Vector<T>
 				return new Return_Elem<T>(true, value);
 			}
 		}
-		
+
 		releaseLock(handle);
 		return new Return_Elem<T>(false, null);
 	}
-	
+
 	/*
 	 * Algorithm 16: A conditional write function that inserts a new
 	 * Node element into the internal storage of the Vector, if the
@@ -815,18 +815,18 @@ class Vector<T>
 	Return_Elem<T> cwrite(int pos, Node<T> old_Elem, Node<T> new_Elem)
 	{
 		long handle = RA_acquireLock(pos);
-		
-		/* 
-		 * It is first checked if the position given isn't outside the capacity 
-		 * of the internal storage. If so, then the thread cannot access that 
+
+		/*
+		 * It is first checked if the position given isn't outside the capacity
+		 * of the internal storage. If so, then the thread cannot access that
 		 * position of the Vector, so return false and a NULL value.
 		 */
 		if(pos <= this.getCapacity())
 		{
 			// Get the Node element at the given position.
 			Node<T> value = this.getSpot(pos);
-			
-			/* 
+
+			/*
 			 * If the value received is equal to the old Node element given,
 			 * then the store the new Node element at the given position,
 			 * depending on what type of internal storage is used for this
@@ -839,30 +839,30 @@ class Vector<T>
 				{
 					segStorage.store(pos, new_Elem);
 				}
-				
+
 				else
 				{
 					conStorage.store(pos, new_Elem);
 				}
-				
+
 				releaseLock(handle);
 				return new Return_Elem<T>(true, old_Elem);
 			}
-			
+
 			else
 			{
 				releaseLock(handle);
 				return new Return_Elem<T>(false, value);
 			}
 		}
-		
+
 		releaseLock(handle);
-		
+
 		return new Return_Elem<T>(false, null);
 	}
-	
+
 	/*
-	 * Algorithm 17: An insert function that inserts a given Node element 
+	 * Algorithm 17: An insert function that inserts a given Node element
 	 * value at the given position. The elements must be shifted from the
 	 * position to the tail of the Vector's internal storage or array of
 	 * elements.
@@ -870,7 +870,7 @@ class Vector<T>
 	boolean insertAt(int pos, Node<T> value)
 	{
 		long handle = MP_acquireLock(pos);
-		
+
 		/*
 		 * First, check which type of memory storage is being used.
 		 * Afterwards, insert the element into the Vector in the internal
@@ -883,10 +883,10 @@ class Vector<T>
 				Node<T> shift = segStorage.getSpot(i - 1);
 				segStorage.store(i, shift);
 			}
-			
+
 			segStorage.store(pos, value);
 		}
-		
+
 		else
 		{
 			for(int i = size; i >= pos + 1; i--)
@@ -894,38 +894,38 @@ class Vector<T>
 				Node<T> shift = conStorage.getSpot(i - 1);
 				conStorage.store(i, shift);
 			}
-			
+
 			conStorage.store(pos, value);
 		}
-		
+
 		/*
-		 * Increment the size of the Vector after inserting the element 
+		 * Increment the size of the Vector after inserting the element
 		 * into the memory storage.
 		 */
 		this.size += 1;
-		
+
 		releaseLock(handle);
 		return true;
 	}
-	
+
 	/*
-	 * Algorithm 18: An erase function that erase the Node element at the 
+	 * Algorithm 18: An erase function that erase the Node element at the
 	 * given position. The elements must be shifted from the tail to the
 	 * position of the Vector's internal storage or array of elements.
 	 */
 	boolean eraseAt(int pos)
 	{
 		long handle = MP_acquireLock(pos);
-		
+
 		/*
-		 * First, check if the current size is 0. If so, then there is 
+		 * First, check if the current size is 0. If so, then there is
 		 * nothing to erase from the Vector's internal storage.
 		 */
 		if(this.size == 0)
 		{
 			return false;
 		}
-		
+
 		/*
 		 * First, check which type of memory storage is being used.
 		 * Afterwards, erase the element of the Vector in the internal
@@ -939,7 +939,7 @@ class Vector<T>
 				segStorage.store(i, shift);
 			}
 		}
-		
+
 		else
 		{
 			for(int i = pos; i < this.size; i++)
@@ -948,65 +948,65 @@ class Vector<T>
 				conStorage.store(i, shift);
 			}
 		}
-		
+
 		/*
-		 * Decrement the size of the Vector after erasing the element 
+		 * Decrement the size of the Vector after erasing the element
 		 * from the memory storage.
 		 */
 		this.size -= 1;
-		
+
 		releaseLock(handle);
-		
+
 		return true;
 	}
-	
+
 	/*
 	 * Function use to acquire a lock for a tail operation, which would
 	 * be either a pop_back or push_back operation on the Vector's internal
-	 * storage. Create a BitSet representing the resources being used and 
+	 * storage. Create a BitSet representing the resources being used and
 	 * set the first bit as 1, indicating that tail resource is being used.
 	 */
 	long TO_acquireLock()
 	{
 		BitSet tail_resource = new BitSet(this.lock_size);
 		tail_resource.set(0);
-		
+
 		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(tail_resource);
 	}
-	
+
 	/*
 	 * Function use to acquire a lock for a random access operation, which would
 	 * be either an at() or conditional write operation on the Vector's internal
 	 * storage. Create a BitSet representing the resources being used. If the
 	 * position of the random access operation is at the tail, set the first bit
-	 * as 1, indicating the tail source is being used. If not, then set the bit 
-	 * of the given position added by 1 to indicate that the resource of the 
+	 * as 1, indicating the tail source is being used. If not, then set the bit
+	 * of the given position added by 1 to indicate that the resource of the
 	 * position within the Vector is being used.
 	 */
 	long RA_acquireLock(int pos)
 	{
 		BitSet randomAccess_resource = new BitSet(this.lock_size);
-		
+
 		if(pos == this.size - 1)
 		{
 			randomAccess_resource.set(0);
 		}
-		
+
 		else
 		{
 			randomAccess_resource.set(pos + 1);
 		}
-		
+
 		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(randomAccess_resource);
 	}
-	
+
 	/*
 	 * Function use to acquire a lock for a multi-position operation, which would
 	 * be either an insertAt() or eraseAt() operation on the Vector's internal
-	 * storage. Create a BitSet representing the resources being used. First, set 
-	 * the first bit as 1, indicating the tail source is being used. If the position 
+	 * storage. Create a BitSet representing the resources being used. First, set
+	 * the first bit as 1, indicating the tail source is being used. If the position
 	 * of the multi-position operation is not at the tail, then set bits from the
 	 * given position added by 1 to the end of the BitSet, which would be the
 	 * size of the lockset of MRLOCK, indicating that the resources of those
@@ -1016,18 +1016,18 @@ class Vector<T>
 	long MP_acquireLock(int pos)
 	{
 		BitSet multiplePosition_resource = new BitSet(this.lock_size);
-				
+
 		multiplePosition_resource.set(0);
-		
+
 		if(pos != this.size - 1)
 		{
 			multiplePosition_resource.set(pos + 1, this.lock_size);
 		}
-		
+
 		// Send a request to the MRLOCK set to access the resources set.
 		return lockset.acquire(multiplePosition_resource);
 	}
-	
+
 	// Releases the lock within the MRLOCK set given the handle within the buffer.
 	void releaseLock(long handle)
 	{
@@ -1227,7 +1227,7 @@ class MRLock
  * random access operations, and multi-position operations at
  * random.
  */
-class VectorThread extends Thread
+class VectorThread<T> extends Thread
 {
 	/*
 	 * Contains an index value to identify each thread. 
@@ -1241,12 +1241,47 @@ class VectorThread extends Thread
 	
 	// Counter used to access the thread's list of Nodes.
 	int counter = 0;
+	
+	/*
+	 * Contains the ratios for tail operations, random access operations, 
+	 * and multi-position operations during multithreading.
+	 */
+	double TO_Ratio;
+	double RA_Ratio;
+	double MP_Ratio;
+	
+	/*
+	 * Counter used for each type of operation to follow the ratios
+	 * of operations given to the current thread.
+	 */
+	int TO_Cntr = 0;
+	int RA_Cntr = 0;
+	int MP_Cntr = 0;
+	
+	/*
+	 * Counters for each specific operation. Each specific operation's
+	 * ratio is 0.5 out of its operation type's ratio. 
+	 * 
+	 * For example, if the TO_Ratio is equal to 0.5 and the total number 
+	 * of operations is equal to 10000, then the number of push operations 
+	 * and pop operations used 2500, as the number of tail operation to be
+	 * used is 5000.
+	 */
+	int push_Cntr = 0;
+	int pop_Cntr = 0;
+	int at_Cntr = 0;
+	int cw_Cntr = 0;
+	int insert_Cntr = 0;
+	int erase_Cntr = 0;
 
 	// In the constructor, initialize the thread ID and the number of operations.
-	public VectorThread(int threadIndex, int num_operations)
+	public VectorThread(int threadIndex, int num_operations, double TO_Ratio, double RA_Ratio, double MP_Ratio)
 	{
 		this.threadIndex = threadIndex;
 		this.num_operations = num_operations;
+		this.TO_Ratio = TO_Ratio;
+		this.RA_Ratio = RA_Ratio;
+		this.MP_Ratio = MP_Ratio;
 	}
 	
 	@Override
@@ -1261,22 +1296,103 @@ class VectorThread extends Thread
 			// Get a number of either 1 to 3 from the random number generator.
 			random = (int) (Math.random() * 3) + 1;
 			
-			// If the number is 1, use a tail operation.
+			/*
+			 * If the number is 1, use a tail operation if the number of tail operations
+			 * used is below or equal to its ratio of the total number of operations. If
+			 * not, then use either a random access operation or multi-position operation
+			 * according to their counters and ratios.
+			 */
 			if(random == 1)
 			{
-				tail_Operations();
+				if(TO_Cntr <= (num_operations * TO_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using TO");
+					tail_Operations();
+					
+					TO_Cntr++;
+				}
+				
+				else if(RA_Cntr <= (num_operations * RA_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using RAO");
+					randomAccess_Operations();
+					
+					RA_Cntr++;
+				}
+				
+				else if(MP_Cntr <= (num_operations * MP_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using MPO");
+					multiPosition_Operations();
+					
+					MP_Cntr++;
+				}
 			}
 						
-			// If the number is 2, use a random access operation.
+			/*
+			 * If the number is 2, use a random access operation if the number of random 
+			 * access operations used is below or equal to its ratio of the total number 
+			 * of operations. If not, then use either a tail operation or multi-position 
+			 * operation according to their counters and ratios.
+			 */
 			else if(random == 2)
 			{
-				randomAccess_Operations();
+				if(RA_Cntr <= (num_operations * RA_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using RAO");
+					randomAccess_Operations();
+					
+					RA_Cntr++;
+				}
+				
+				else if(TO_Cntr <= (num_operations * TO_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using TO");
+					tail_Operations();
+					
+					TO_Cntr++;
+				}
+				
+				else if(MP_Cntr <= (num_operations * MP_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using MPO");
+					multiPosition_Operations();
+					
+					MP_Cntr++;
+				}
 			}
 			
-			// If the number is 3, use a multi-position operation.
+			/*
+			 * If the number is 3, use a multi-position operation if the number of multi- 
+			 * position operations used is below or equal to its ratio of the total number 
+			 * of operations. If not, then use either a tail operation or random access 
+			 * operation according to their counters and ratios.
+			 */
 			else if(random == 3)
 			{
-				multiPosition_Operations();
+				if(MP_Cntr <= (num_operations * MP_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using MPO");
+					multiPosition_Operations();
+					
+					MP_Cntr++;
+				}
+				
+				else if(TO_Cntr <= (num_operations * TO_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using TO");
+					tail_Operations();
+					
+					TO_Cntr++;
+				}
+				
+				else if(RA_Cntr <= (num_operations * RA_Ratio))
+				{
+					//System.out.println("Thread " + threadIndex + " using RAO");
+					randomAccess_Operations();
+					
+					RA_Cntr++;
+				}
 			}
 		}
 	}
@@ -1289,21 +1405,53 @@ class VectorThread extends Thread
 		
 		// Get a number of either 0 or 1 from the random number generator.
 		int random = rand.nextInt(2);
-		
-		// If the number is 0, use a wait-free pop back operation on the vector.
+					
+		/*
+		 * If the number is 0, use a wait-free pop back operation on the vector if
+		 * the number of pop back operations is less than or equal to its ratio. If
+		 * not, then use a push back operation.
+		 */
 		if(random == 0)
 		{
-			// Pop the Node element at the tail of the vector.
-			Project_Assignment1.vector.WF_popBack();
+			if(pop_Cntr <= (num_operations * TO_Ratio * 0.5))
+			{
+				// Pop the Node element at the tail of the vector.
+				Project_Assignment1.vector.WF_popBack();
+				pop_Cntr++;
+			}
+			
+			else
+			{
+				// Push a Node element from the thread's list of Nodes onto the tail of the vector.
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Project_Assignment1.vector.WF_pushBack(n);
+				counter++;
+				push_Cntr++;
+			}
 		}
 					
-		// If the number is 1, use a wait-free push back operation on the vector.
+		/*
+		 * If the number is 1, use a wait-free push back operation on the vector if
+		 * the number of push back operations is less than or equal to its ratio. If
+		 * not, then use a pop back operation.
+		 */
 		else if(random == 1)
 		{
-			// Push a Node element from the thread's list of Nodes onto the tail of the vector.
-			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
-			Project_Assignment1.vector.WF_pushBack(n);
-			counter++;
+			if(push_Cntr <= (num_operations * TO_Ratio * 0.5))
+			{
+				// Push a Node element from the thread's list of Nodes onto the tail of the vector.
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Project_Assignment1.vector.WF_pushBack(n);
+				counter++;
+				push_Cntr++;
+			}
+			
+			else
+			{
+				// Pop the Node element at the tail of the vector.
+				Project_Assignment1.vector.WF_popBack();
+				pop_Cntr++;
+			}
 		}
 	}
 	
@@ -1317,25 +1465,66 @@ class VectorThread extends Thread
 		int random = rand.nextInt(2);
 		
 		// Get a random position from the vector based on size.
-		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size);
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.getCapacity()) + 1;
 		
-		// If the number is 0, use a at() operation on the vector.
+		/*
+		 * If the number is 0, use a at() operation on the vector if the number
+		 * of at() operations is less than or equal to its ratio. If not, then
+		 * use a conditional write operation.
+		 */
 		if(random == 0)
 		{
-			// Get the element of the vector at the given position.
-			Project_Assignment1.vector.at(random_pos);
+			if(at_Cntr <= (num_operations * RA_Ratio * 0.5))
+			{
+				// Get the element of the vector at the given position.
+				Project_Assignment1.vector.at(random_pos);
+				
+				at_Cntr++;
+			}
+			
+			else
+			{
+				/*
+				 * Write a Node element at the given position of the vector using 
+				 * a conditional write with a Node from thread's list of Nodes.
+				 */
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Node<Integer> old_Elem = Project_Assignment1.vector.getSpot(random_pos);
+				Project_Assignment1.vector.cwrite(random_pos, old_Elem, n);
+				counter++;
+				
+				cw_Cntr++;
+			}
 		}
 					
-		// If the number is 1, use a conditional write operation on the vector.
+		/*
+		 * If the number is 1, use a conditional write operation on the vector if the number
+		 * of conditional write operations is less than or equal to its ratio. If not, then
+		 * use a at() operation.
+		 */
 		else if(random == 1)
 		{
-			/*
-			 * Write a Node element at the given position of the vector using 
-			 * a conditional write with a Node from thread's list of Nodes.
-			 */
-			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
-			Project_Assignment1.vector.cwrite(random_pos, Project_Assignment1.vector.getSpot(random_pos), n);
-			counter++;
+			if(cw_Cntr <= (num_operations * RA_Ratio * 0.5))
+			{
+				/*
+				 * Write a Node element at the given position of the vector using 
+				 * a conditional write with a Node from thread's list of Nodes.
+				 */
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Node<Integer> old_Elem = Project_Assignment1.vector.getSpot(random_pos);
+				Project_Assignment1.vector.cwrite(random_pos, old_Elem, n);
+				counter++;
+				
+				cw_Cntr++;
+			}
+			
+			else
+			{
+				// Get the element of the vector at the given position.
+				Project_Assignment1.vector.at(random_pos);
+				
+				at_Cntr++;
+			}
 		}
 	}
 	
@@ -1349,45 +1538,86 @@ class VectorThread extends Thread
 		int random = rand.nextInt(2);
 		
 		// Get a random position from the vector based on size.
-		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size);
-		
-		// If the number is 0, use a insertAt() operation on the vector.
+		int random_pos = (int) (Math.random() * Project_Assignment1.vector.size) + 1;
+					
+		/*
+		 * If the number is 0, use an insertAt() operation on the vector if the
+		 * number of insertAt() operations is less than or equal to its ratio.
+		 * If not, then use an eraseAt() operation.
+		 */
 		if(random == 0)
 		{
-			/*
-			 * Insert a Node element into the vector at the given position
-			 * using a Node from thread's list of Nodes.
-			 */
-			Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
-			Project_Assignment1.vector.insertAt(random_pos, n);
-			counter++;
+			if(insert_Cntr <= (num_operations * MP_Ratio * 0.5))
+			{
+				/*
+				 * Insert a Node element into the vector at the given position
+				 * using a Node from thread's list of Nodes.
+				 */
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Project_Assignment1.vector.insertAt(random_pos, n);
+				counter++;
+				
+				insert_Cntr++;
+			}
+			
+			else
+			{
+				// Erase the Node element in the vector at the given position.
+				Project_Assignment1.vector.eraseAt(random_pos);
+				
+				erase_Cntr++;
+			}
 		}
 					
-		// If the number is 1, use a eraseAt() pop back operation on the vector.
+		/*
+		 * If the number is 1, use an eraseAt() operation on the vector if the
+		 * number of eraseAt() operations is less than or equal to its ratio.
+		 * If not, then use an insertAt() operation.
+		 */
 		else if(random == 1)
 		{
-			// Erase the Node element in the vector at the given position.
-			Project_Assignment1.vector.eraseAt(random_pos);
+			if(erase_Cntr <= (num_operations * MP_Ratio * 0.5))
+			{
+				// Erase the Node element in the vector at the given position.
+				Project_Assignment1.vector.eraseAt(random_pos);
+				
+				erase_Cntr++;
+			}
+			
+			else
+			{
+				/*
+				 * Insert a Node element into the vector at the given position
+				 * using a Node from thread's list of Nodes.
+				 */
+				Node<Integer> n = Project_Assignment1.threadNodes.get(threadIndex).get(counter);
+				Project_Assignment1.vector.insertAt(random_pos, n);
+				counter++;
+				
+				insert_Cntr++;
+			}
 		}
 	}
 }
 
 public class Project_Assignment1 
 {
-	// Contains the numbers of threads to use to test the wait-free vector.
-	public static int num_threads = 32;
+	// Contains the maximum numbers of threads to use to test the wait-free vector.
+	public static int max_threads = 32;
 	
 	// Contains a list of Nodes pre-allocated for each thread using during multithreading when accessing the stack.
-	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(num_threads);
+	public static ArrayList<ArrayList<Node<Integer>>> threadNodes = new ArrayList<ArrayList<Node<Integer>>>(max_threads);
 	
 	// Contains the maximum number operations used for each thread when accessing the stack.
-	public static int max_operations = 1000;
+	public static int max_operations = 1250;
 	
-	// Contains the incremented number of operations for each test case.
-	public static int inc_operations = 1000;
+	// Contains the ratios for tail operations, random access operations, and multi-position operations during multithreading.
+	public static double TO_Ratio = 0.5;
+	public static double RA_Ratio = 0.5;
+	public static double MP_Ratio = 0;
 	
 	// Contains the number of Nodes to insert into the stack before being accessed by multiple threads.
-	public static int population = 500;
+	public static int population = 100;
 	
 	// Contains a boolean value to signify either using segmented or contiguous memory in the Vector object.
 	public static boolean segmented_contiguous = false;
@@ -1398,20 +1628,8 @@ public class Project_Assignment1
 	// Contains the Vector object to be accessed by multiple threads.
 	public static Vector<Integer> vector;
 	
-	public static void main (String[] args)
+	public static <T> void main (String[] args)
     {
-		/*
-		 * Add a new list of Nodes for the new thread and populate the threads 
-		 * with a list of Nodes. This is to allocate Nodes for each thread to
-		 * use when accessing the Vector class object
-		 */
-		for(int i = 0; i < num_threads; i++)
-		{
-			threadNodes.add(new ArrayList<Node<Integer>>());
-		}
-		
-		populateThreads(num_threads);
-		
 		/*
 		 * First, test the Segmented Memory model for the internal storage of the Vector object
 		 * and test the model when being accessed by multiple threads using different numbers of
@@ -1420,25 +1638,31 @@ public class Project_Assignment1
 		System.out.println("Segmented Memory Model - ");
 		System.out.println("# Operations:\tExecution time:");
 		
-		// For each test case, give different numbers of operations to use for each thread.
-		for(int i = inc_operations; i <= max_operations; i += inc_operations)
+		for(int i = 1; i <= max_threads; i++)
 		{
-			// Declare a new Vector object for each test case.
-			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * 4));
+			// Have the number of threads used for multithreading be initialized from 1 to 32.
+			int num_threads = i;
 			
-			// Populate the vector with elements.
+			// Create a new lock-free stack for each iteration.
+			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (int) (i * (((TO_Ratio + MP_Ratio) * 0.5) * max_operations)));
+			
+			// Populate the lock-free stack with elements.
 			populate(population);
 			
-			// Contains the threads that will be used for multithreading
+			// Add a new list of Nodes for the new thread and populate the threads with a list of Nodes.
+			threadNodes.add(new ArrayList<Node<Integer>>());
+			populateThreads(num_threads);
+			
+			// Contains the threads that will be used for multithreading.
 			Thread threads[] = new Thread[num_threads];
 			
 			// Record the start of the execution time prior to spawning the threads.
 			long start = System.nanoTime();
 			
-			// Spawn 4 concurrent threads accessing the stack.
+			// Spawn 'i' number of concurrent threads to access the Vector.
 			for(int j = 0; j < num_threads; j++)
 			{
-				threads[j] = new Thread(new VectorThread(j, i));
+				threads[j] = new Thread(new VectorThread<T>(j, max_operations, TO_Ratio, RA_Ratio, MP_Ratio));
 				threads[j].start();
 			}
 			
@@ -1450,7 +1674,7 @@ public class Project_Assignment1
 					threads[j].join();
 				}
 				
-				catch (Exception ex) 
+				catch (Exception ex)
 				{
 					System.out.println("Failed to join thread.");
 				}
@@ -1458,18 +1682,24 @@ public class Project_Assignment1
 			
 			// Record the end of the execution time after all threads are complete.
 			long end = System.nanoTime();
-						
+			
 			// Record the total execution time.
 			long duration = end - start;
-				
+			
 			// Convert the execution time to seconds.
 			float execution_time = (float) duration / 1000000000;
-			
+						
 			/*
 			 * Print the number of operations used and the execution time 
 			 * during multithreading.
 			 */
 			System.out.println(i + "\t\t" + execution_time + " sec");
+			
+			// Clear out all the threads' list of Nodes to use new Nodes for the next iteration.
+			for(int j = 0; j < i; j++)
+			{
+				threadNodes.get(j).clear();
+			}
 		}
 		
 		/*
@@ -1483,25 +1713,31 @@ public class Project_Assignment1
 		System.out.println("Contiguous Memory Model - ");
 		System.out.println("# Operations:\tExecution time:");
 		
-		// For each test case, give different numbers of operations to use for each thread.
-		for(int i = inc_operations; i <= max_operations; i += inc_operations)
+		for(int i = 1; i <= max_threads; i++)
 		{
-			// Declare a new Vector object for each test case.
-			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (i * 4));
+			// Have the number of threads used for multithreading be initialized from 1 to 32.
+			int num_threads = i;
 			
-			// Populate the vector with elements.
+			// Create a new lock-free stack for each iteration.
+			vector = new Vector<Integer>(segmented_contiguous, capacity, population + (int) (i * (((TO_Ratio + MP_Ratio) * 0.5) * max_operations)));
+			
+			// Populate the lock-free stack with elements.
 			populate(population);
 			
-			// Contains the threads that will be used for multithreading
+			// Add a new list of Nodes for the new thread and populate the threads with a list of Nodes.
+			threadNodes.add(new ArrayList<Node<Integer>>());
+			populateThreads(num_threads);
+			
+			// Contains the threads that will be used for multithreading.
 			Thread threads[] = new Thread[num_threads];
 			
 			// Record the start of the execution time prior to spawning the threads.
 			long start = System.nanoTime();
 			
-			// Spawn 4 concurrent threads accessing the stack.
+			// Spawn 'i' number of concurrent threads to access the Vector.
 			for(int j = 0; j < num_threads; j++)
 			{
-				threads[j] = new Thread(new VectorThread(j, i));
+				threads[j] = new Thread(new VectorThread<T>(j, max_operations, TO_Ratio, RA_Ratio, MP_Ratio));
 				threads[j].start();
 			}
 			
@@ -1513,7 +1749,7 @@ public class Project_Assignment1
 					threads[j].join();
 				}
 				
-				catch (Exception ex) 
+				catch (Exception ex)
 				{
 					System.out.println("Failed to join thread.");
 				}
@@ -1521,28 +1757,34 @@ public class Project_Assignment1
 			
 			// Record the end of the execution time after all threads are complete.
 			long end = System.nanoTime();
-						
+			
 			// Record the total execution time.
 			long duration = end - start;
-				
+			
 			// Convert the execution time to seconds.
 			float execution_time = (float) duration / 1000000000;
-			
+						
 			/*
 			 * Print the number of operations used and the execution time 
 			 * during multithreading.
 			 */
 			System.out.println(i + "\t\t" + execution_time + " sec");
+			
+			// Clear out all the threads' list of Nodes to use new Nodes for the next iteration.
+			for(int j = 0; j < i; j++)
+			{
+				threadNodes.get(j).clear();
+			}
 		}
-    }
-	
+	}
+		
 	// Function used to populate the concurrent stack by pushing 'x' number of elements.
 	public static void populate (int x)
 	{
 		for(int i = 0; i < x; i++)
 		{
 			Node<Integer> new_Node = new Node<Integer>(i);
-			vector.WF_pushBack(new_Node);
+			vector.FAA_pushBack(new_Node);
 		}
 	}
 	
